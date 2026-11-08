@@ -1,7 +1,9 @@
 package servicio;
 
+import modelo.Alquiler;
 import modelo.Pago;
 import modelo.PlanificacionPago;
+import modelo.Propietario;
 
 import java.io.*;
 import java.time.LocalDate;
@@ -29,6 +31,7 @@ public class ServicioPago {
 
     /** Guarda un pago nuevo, le asigna su id y suma el monto a la planificación. */
     public void guardar(Pago pago) {
+        aplicarMetodoDelPropietario(pago);
         validarCampos(pago);
         PlanificacionPago plan = obtenerPlanificacion(pago.getIdPlanificacionPago());
 
@@ -70,6 +73,7 @@ public class ServicioPago {
      * Devuelve false si el id no existe.
      */
     public boolean modificar(Pago nuevo) {
+        aplicarMetodoDelPropietario(nuevo);
         validarCampos(nuevo);
         Pago viejo = buscarPorId(nuevo.getId());
         if (viejo == null) {
@@ -114,6 +118,51 @@ public class ServicioPago {
     // ---------------------------------------------------------------
     // Validaciones y apoyo
     // ---------------------------------------------------------------
+
+    /**
+     * Método de pago que corresponde a una planificación: el del propietario del alquiler
+     * (planificación -> alquiler -> propietario -> método de pago).
+     *
+     * @return "T" (Transferencia), "E" (Efectivo) o null si no se puede determinar
+     */
+    public String metodoDelPropietario(String idPlanificacion) {
+        if (idPlanificacion == null || idPlanificacion.trim().isEmpty()) {
+            return null;
+        }
+        PlanificacionPago plan = servicioPlanificacion.buscar(idPlanificacion.trim());
+        if (plan == null) {
+            return null;
+        }
+        try {
+            Alquiler alquiler = new ServicioAlquiler().buscar(plan.getIdAlquiler());
+            if (alquiler == null) {
+                return null;
+            }
+            Propietario propietario = new ServicioPropietario().buscar(alquiler.getIdPropietario());
+            if (propietario == null || propietario.getMetodoPagoPreferido() == null) {
+                return null;
+            }
+            String metodo = propietario.getMetodoPagoPreferido().trim();
+            if ("Transferencia".equalsIgnoreCase(metodo)) {
+                return Pago.TRANSFERENCIA;
+            }
+            if ("Efectivo".equalsIgnoreCase(metodo)) {
+                return Pago.EFECTIVO;
+            }
+            return null;
+        } catch (IOException e) {
+            System.err.println("Error al leer alquiler.csv: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** Si se conoce el método del propietario, el pago siempre se registra con ese método. */
+    private void aplicarMetodoDelPropietario(Pago pago) {
+        String metodo = metodoDelPropietario(pago.getIdPlanificacionPago());
+        if (metodo != null) {
+            pago.setMetodo(metodo);
+        }
+    }
 
     private void validarCampos(Pago pago) {
         if (pago.getIdPlanificacionPago() == null || pago.getIdPlanificacionPago().trim().isEmpty()) {

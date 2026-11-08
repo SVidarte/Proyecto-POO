@@ -5,6 +5,8 @@ import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -12,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -25,7 +28,13 @@ import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import modelo.Alquiler;
 import modelo.AlquilerDepartamento;
+import modelo.Cliente;
+import modelo.Departamento;
+import modelo.Propietario;
 import servicio.ServicioAlquiler;
+import servicio.ServicioCliente;
+import servicio.ServicioDepartamento;
+import servicio.ServicioPropietario;
 import servicio.ServicioDetalleAlquiler;
 
 /**
@@ -49,9 +58,10 @@ public class VistaAlquiler extends JFrame {
     private String idSeleccionado = null;
 
     private final JTextField txtId = new JTextField();
-    private final JTextField txtIdCliente = new JTextField();
-    private final JTextField txtIdPropietario = new JTextField();
-    private final JTextField txtIdDepartamento = new JTextField();
+    // Listas desplegables: se llenan con clientes.csv, propietarios.csv y departamentos.csv
+    private final JComboBox<String> cmbCliente = new JComboBox<>();
+    private final JComboBox<String> cmbPropietario = new JComboBox<>();
+    private final JComboBox<String> cmbDepartamento = new JComboBox<>();
     private final JTextField txtFechaInicial = new JTextField();
     private final JTextField txtFechaFinal = new JTextField();
     private final JTextField txtMonto = new JTextField();
@@ -83,6 +93,12 @@ public class VistaAlquiler extends JFrame {
         setSize(900, 560);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowActivated(WindowEvent e) {
+                cargarCombos(true);
+            }
+        });
         ((JComponent) getContentPane()).setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel norte = new JPanel(new BorderLayout(5, 10));
@@ -147,13 +163,13 @@ public class VistaAlquiler extends JFrame {
         panel.add(new JLabel("Monto a pagar:"));
         panel.add(txtMonto);
 
-        panel.add(new JLabel("ID cliente:"));
-        panel.add(txtIdCliente);
-        panel.add(new JLabel("ID propietario:"));
-        panel.add(txtIdPropietario);
+        panel.add(new JLabel("Cliente:"));
+        panel.add(cmbCliente);
+        panel.add(new JLabel("Propietario:"));
+        panel.add(cmbPropietario);
 
-        panel.add(new JLabel("ID departamento:"));
-        panel.add(txtIdDepartamento);
+        panel.add(new JLabel("Departamento (disponibles):"));
+        panel.add(cmbDepartamento);
         panel.add(new JLabel(""));
         panel.add(new JLabel(""));
 
@@ -287,10 +303,126 @@ public class VistaAlquiler extends JFrame {
             throw new IllegalArgumentException("El monto a pagar debe ser un número (ejemplo: 1500.50).");
         }
         return new AlquilerDepartamento(id,
-                txtIdCliente.getText().trim(),
-                txtIdPropietario.getText().trim(),
-                txtIdDepartamento.getText().trim(),
+                idDelCombo(cmbCliente, "No hay clientes registrados. Registre un cliente primero."),
+                idDelCombo(cmbPropietario, "No hay propietarios registrados. Registre un propietario primero."),
+                idDelCombo(cmbDepartamento, "No hay departamentos disponibles. Registre uno en la gestión de departamentos."),
                 inicio, fin, monto);
+    }
+
+    // ---------------------------------------------------------------------
+    // Listas desplegables de clientes, propietarios y departamentos
+    // ---------------------------------------------------------------------
+
+    /**
+     * Llena las tres listas leyendo clientes.csv, propietarios.csv y departamentos.csv
+     * (solo los departamentos con estado Disponible).
+     *
+     * @param conservarSeleccion true = mantiene lo que el usuario tenía elegido; false = vuelve al primer elemento
+     */
+    private void cargarCombos(boolean conservarSeleccion) {
+        String idCliente = conservarSeleccion ? idDelComboONull(cmbCliente) : null;
+        String idPropietario = conservarSeleccion ? idDelComboONull(cmbPropietario) : null;
+        String idDepartamento = conservarSeleccion ? idDelComboONull(cmbDepartamento) : null;
+
+        cmbCliente.removeAllItems();
+        for (Cliente c : new ServicioCliente().listar()) {
+            cmbCliente.addItem(etiquetaCliente(c));
+        }
+        cmbPropietario.removeAllItems();
+        for (Propietario p : new ServicioPropietario().listar()) {
+            cmbPropietario.addItem(etiquetaPropietario(p));
+        }
+        cmbDepartamento.removeAllItems();
+        for (Departamento d : new ServicioDepartamento().listarDepartamento()) {
+            if (Departamento.DISPONIBLE.equals(d.getEstado())) {
+                cmbDepartamento.addItem(etiquetaDepartamento(d));
+            }
+        }
+
+        if (idCliente != null) {
+            seleccionarCliente(idCliente);
+        }
+        if (idPropietario != null) {
+            seleccionarPropietario(idPropietario);
+        }
+        if (idDepartamento != null) {
+            seleccionarDepartamento(idDepartamento);
+        }
+    }
+
+    private String etiquetaCliente(Cliente c) {
+        return c.getId() + " - " + c.getNombres() + " " + c.getApellidos();
+    }
+
+    private String etiquetaPropietario(Propietario p) {
+        return p.getId() + " - " + p.getNombres() + " " + p.getApellidos();
+    }
+
+    private String etiquetaDepartamento(Departamento d) {
+        return d.getId_departamento() + " - Dpto " + d.getNumero_departamento() + " - " + d.getDireccion();
+    }
+
+    /** Elige el cliente en la lista; si ya no está registrado lo agrega para poder mostrarlo. */
+    private void seleccionarCliente(String id) {
+        if (!seleccionarSiEsta(cmbCliente, id)) {
+            Cliente c = new ServicioCliente().buscar(id);
+            agregarYSeleccionar(cmbCliente, c != null ? etiquetaCliente(c) : id + " - (no registrado)");
+        }
+    }
+
+    private void seleccionarPropietario(String id) {
+        if (!seleccionarSiEsta(cmbPropietario, id)) {
+            Propietario p = new ServicioPropietario().buscar(id);
+            agregarYSeleccionar(cmbPropietario, p != null ? etiquetaPropietario(p) : id + " - (no registrado)");
+        }
+    }
+
+    /**
+     * Elige el departamento en la lista. Un alquiler ya guardado puede tener un departamento que ahora
+     * está Ocupado (no aparece en la lista de disponibles): en ese caso se agrega solo para mostrarlo.
+     */
+    private void seleccionarDepartamento(String id) {
+        if (!seleccionarSiEsta(cmbDepartamento, id)) {
+            Departamento d = new ServicioDepartamento().buscarPorId(id);
+            String etiqueta = (d != null)
+                    ? etiquetaDepartamento(d) + " (" + d.getEstado() + ")"
+                    : id + " - (no registrado)";
+            agregarYSeleccionar(cmbDepartamento, etiqueta);
+        }
+    }
+
+    private boolean seleccionarSiEsta(JComboBox<String> combo, String id) {
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (combo.getItemAt(i).startsWith(id + " - ")) {
+                combo.setSelectedIndex(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void agregarYSeleccionar(JComboBox<String> combo, String etiqueta) {
+        combo.addItem(etiqueta);
+        combo.setSelectedIndex(combo.getItemCount() - 1);
+    }
+
+    /** Id (lo que está antes de " - ") del elemento elegido, o null si la lista está vacía. */
+    private String idDelComboONull(JComboBox<String> combo) {
+        Object item = combo.getSelectedItem();
+        if (item == null) {
+            return null;
+        }
+        String texto = item.toString();
+        int corte = texto.indexOf(" - ");
+        return corte >= 0 ? texto.substring(0, corte) : texto;
+    }
+
+    private String idDelCombo(JComboBox<String> combo, String mensajeSiVacio) {
+        String id = idDelComboONull(combo);
+        if (id == null) {
+            throw new IllegalArgumentException(mensajeSiVacio);
+        }
+        return id;
     }
 
     private LocalDate leerFecha(String texto, String nombreCampo) {
@@ -304,9 +436,9 @@ public class VistaAlquiler extends JFrame {
     private void llenarFormulario(Alquiler a) {
         idSeleccionado = a.getId();
         txtId.setText(a.getId());
-        txtIdCliente.setText(a.getIdCliente());
-        txtIdPropietario.setText(a.getIdPropietario());
-        txtIdDepartamento.setText(a.getIdDepartamento());
+        seleccionarCliente(a.getIdCliente());
+        seleccionarPropietario(a.getIdPropietario());
+        seleccionarDepartamento(a.getIdDepartamento());
         txtFechaInicial.setText(a.getFechaInicial().format(Alquiler.FORMATO_FECHA));
         txtFechaFinal.setText(a.getFechaFinal().format(Alquiler.FORMATO_FECHA));
         txtMonto.setText(String.valueOf(a.getMontoPagar()));
@@ -315,9 +447,7 @@ public class VistaAlquiler extends JFrame {
     private void limpiar() {
         idSeleccionado = null;
         txtId.setText(TEXTO_AUTOMATICO);
-        txtIdCliente.setText("");
-        txtIdPropietario.setText("");
-        txtIdDepartamento.setText("");
+        cargarCombos(false);
         txtFechaInicial.setText("");
         txtFechaFinal.setText("");
         txtMonto.setText("");
@@ -357,9 +487,9 @@ public class VistaAlquiler extends JFrame {
         }
         idSeleccionado = String.valueOf(modeloTabla.getValueAt(fila, 0));
         txtId.setText(idSeleccionado);
-        txtIdCliente.setText(String.valueOf(modeloTabla.getValueAt(fila, 1)));
-        txtIdPropietario.setText(String.valueOf(modeloTabla.getValueAt(fila, 2)));
-        txtIdDepartamento.setText(String.valueOf(modeloTabla.getValueAt(fila, 3)));
+        seleccionarCliente(String.valueOf(modeloTabla.getValueAt(fila, 1)));
+        seleccionarPropietario(String.valueOf(modeloTabla.getValueAt(fila, 2)));
+        seleccionarDepartamento(String.valueOf(modeloTabla.getValueAt(fila, 3)));
         txtFechaInicial.setText(String.valueOf(modeloTabla.getValueAt(fila, 4)));
         txtFechaFinal.setText(String.valueOf(modeloTabla.getValueAt(fila, 5)));
         txtMonto.setText(String.valueOf(modeloTabla.getValueAt(fila, 6)));

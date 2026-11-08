@@ -9,12 +9,16 @@ public class ServicioPropietario {
     private final String ARCHIVO = "propietarios.csv";
     private List<Propietario> listaPropietarios;
 
+    // El método de pago de un propietario solo puede ser uno de estos dos
+    private static final String[] METODOS_PAGO = {"Transferencia", "Efectivo"};
+
     public ServicioPropietario() {
         listaPropietarios = new ArrayList<>();
         cargarDesdeArchivo();
     }
 
     public void guardar(Propietario propietario) {
+        propietario.setMetodoPagoPreferido(validarMetodoPago(propietario.getMetodoPagoPreferido()));
         if (propietario.getId() == null || propietario.getId().isEmpty()) {
             propietario.setId(generarIdAutoIncremental());
         }
@@ -36,6 +40,7 @@ public class ServicioPropietario {
     }
 
     public boolean modificar(Propietario propietarioModificado) {
+        propietarioModificado.setMetodoPagoPreferido(validarMetodoPago(propietarioModificado.getMetodoPagoPreferido()));
         for (int i = 0; i < listaPropietarios.size(); i++) {
             if (listaPropietarios.get(i).getId().equalsIgnoreCase(propietarioModificado.getId())) {
                 listaPropietarios.set(i, propietarioModificado);
@@ -44,6 +49,18 @@ public class ServicioPropietario {
             }
         }
         return false;
+    }
+
+    /** Devuelve "Transferencia" o "Efectivo" (sin importar mayúsculas); cualquier otro valor es un error. */
+    private String validarMetodoPago(String metodo) {
+        if (metodo != null) {
+            for (String valido : METODOS_PAGO) {
+                if (valido.equalsIgnoreCase(metodo.trim())) {
+                    return valido;
+                }
+            }
+        }
+        throw new IllegalArgumentException("El método de pago debe ser Transferencia o Efectivo.");
     }
 
     private String generarIdAutoIncremental() {

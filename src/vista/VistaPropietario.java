@@ -19,7 +19,7 @@ public class VistaPropietario extends JFrame {
     private JTextField txtEmail;
     private JTextField txtCelular;
     private JComboBox<String> cmbSexo;
-    private JTextField txtMetodoPago;
+    private JComboBox<String> cmbMetodoPago;
     private JTextField txtNumeroCuenta;
     private JTextField txtBanco;
 
@@ -105,9 +105,9 @@ public class VistaPropietario extends JFrame {
         lblMetodoPago.setBounds(400, 125, 140, 25);
         add(lblMetodoPago);
 
-        txtMetodoPago = new JTextField();
-        txtMetodoPago.setBounds(540, 125, 200, 25);
-        add(txtMetodoPago);
+        cmbMetodoPago = new JComboBox<>(new String[]{"Transferencia", "Efectivo"});
+        cmbMetodoPago.setBounds(540, 125, 200, 25);
+        add(cmbMetodoPago);
 
         JLabel lblNumCuenta = new JLabel("Nro. Cuenta:");
         lblNumCuenta.setBounds(400, 160, 140, 25);
@@ -165,7 +165,7 @@ public class VistaPropietario extends JFrame {
                     char sexo = modeloTabla.getValueAt(fila, 6).toString().charAt(0);
                     cmbSexo.setSelectedItem(sexo == 'M' ? "Masculino" : "Femenino");
                     
-                    txtMetodoPago.setText(modeloTabla.getValueAt(fila, 7).toString());
+                    seleccionarMetodoPago(modeloTabla.getValueAt(fila, 7).toString());
                     txtNumeroCuenta.setText(modeloTabla.getValueAt(fila, 8).toString());
                     txtBanco.setText(modeloTabla.getValueAt(fila, 9).toString());
                 }
@@ -184,7 +184,7 @@ public class VistaPropietario extends JFrame {
                 txtEmail.getText(),
                 txtCelular.getText(),
                 sexo,
-                txtMetodoPago.getText(),
+                cmbMetodoPago.getSelectedItem().toString(),
                 txtNumeroCuenta.getText(),
                 txtBanco.getText()
             );
@@ -213,7 +213,7 @@ public class VistaPropietario extends JFrame {
                 txtEmail.getText(),
                 txtCelular.getText(),
                 sexo,
-                txtMetodoPago.getText(),
+                cmbMetodoPago.getSelectedItem().toString(),
                 txtNumeroCuenta.getText(),
                 txtBanco.getText()
             );
@@ -230,6 +230,16 @@ public class VistaPropietario extends JFrame {
         }
     }
 
+    /** Elige en la lista el método guardado (sin importar mayúsculas); si es un valor desconocido no cambia nada. */
+    private void seleccionarMetodoPago(String metodo) {
+        for (int i = 0; i < cmbMetodoPago.getItemCount(); i++) {
+            if (cmbMetodoPago.getItemAt(i).equalsIgnoreCase(metodo.trim())) {
+                cmbMetodoPago.setSelectedIndex(i);
+                return;
+            }
+        }
+    }
+
     private void limpiarCampos() {
         txtId.setText("");
         txtDni.setText("");
@@ -238,7 +248,7 @@ public class VistaPropietario extends JFrame {
         txtEmail.setText("");
         txtCelular.setText("");
         cmbSexo.setSelectedIndex(0);
-        txtMetodoPago.setText("");
+        cmbMetodoPago.setSelectedIndex(0);
         txtNumeroCuenta.setText("");
         txtBanco.setText("");
         tablaPropietarios.clearSelection();

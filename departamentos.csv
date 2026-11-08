@@ -1,0 +1,3 @@
+id_departamento;id_propietario;piso;numero_departamento;direccion;precio_mensual;estado
+DP0001;P0001;5;201;Santa María del Pinar;3000.00;Disponible
+DP0002;P0002;6;602;Av San Isidro;4000.00;Ocupado

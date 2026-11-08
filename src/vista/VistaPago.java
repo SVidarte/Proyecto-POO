@@ -4,6 +4,8 @@ import modelo.Pago;
 import servicio.ServicioPago;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDate;
@@ -21,6 +23,7 @@ public class VistaPago extends JFrame {
     private JTextField txtMonto;
     private JTextField txtFecha;
     private JComboBox<String> cmbMetodo;
+    private JLabel lblMetodo;
 
     // Búsqueda
     private JTextField txtBuscar;
@@ -58,6 +61,17 @@ public class VistaPago extends JFrame {
         txtFecha = new JTextField();
         cmbMetodo = new JComboBox<>(new String[]{"Transferencia", "Efectivo"});
 
+        // Al escribir el id de la planificación se detecta el método de pago del propietario
+        // y se bloquea la lista "Método"
+        txtPlanificacion.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { actualizarMetodoSegunPropietario(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { actualizarMetodoSegunPropietario(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { actualizarMetodoSegunPropietario(); }
+        });
+
         panelFormulario.add(new JLabel("ID de pago:"));
         panelFormulario.add(txtId);
         panelFormulario.add(new JLabel("ID planificación de pago:"));
@@ -66,7 +80,8 @@ public class VistaPago extends JFrame {
         panelFormulario.add(txtMonto);
         panelFormulario.add(new JLabel("Fecha (dd/MM/yyyy):"));
         panelFormulario.add(txtFecha);
-        panelFormulario.add(new JLabel("Método:"));
+        lblMetodo = new JLabel("Método:");
+        panelFormulario.add(lblMetodo);
         panelFormulario.add(cmbMetodo);
 
         JButton btnGuardar = new JButton("Guardar");
@@ -248,7 +263,9 @@ public class VistaPago extends JFrame {
         txtPlanificacion.setText((String) modeloTabla.getValueAt(fila, 1));
         txtMonto.setText((String) modeloTabla.getValueAt(fila, 2));
         txtFecha.setText((String) modeloTabla.getValueAt(fila, 3));
-        cmbMetodo.setSelectedItem(modeloTabla.getValueAt(fila, 4));
+        if (cmbMetodo.isEnabled()) { // si el método está bloqueado por el propietario, se respeta ese
+            cmbMetodo.setSelectedItem(modeloTabla.getValueAt(fila, 4));
+        }
     }
 
     private void limpiarFormulario() {
@@ -258,6 +275,22 @@ public class VistaPago extends JFrame {
         txtFecha.setText(LocalDate.now().format(Pago.FORMATO_FECHA));
         cmbMetodo.setSelectedIndex(0);
         tabla.clearSelection();
+    }
+
+    /**
+     * Busca el método de pago del propietario de la planificación escrita: si lo encuentra, lo elige
+     * en la lista y la bloquea; si no (campo vacío o planificación inexistente), deja elegir libremente.
+     */
+    private void actualizarMetodoSegunPropietario() {
+        String codigo = servicio.metodoDelPropietario(txtPlanificacion.getText().trim());
+        if (codigo != null) {
+            cmbMetodo.setSelectedItem(codigoATexto(codigo));
+            cmbMetodo.setEnabled(false);
+            lblMetodo.setText("Método (según el propietario):");
+        } else {
+            cmbMetodo.setEnabled(true);
+            lblMetodo.setText("Método:");
+        }
     }
 
     private void mostrarError(String mensaje) {
