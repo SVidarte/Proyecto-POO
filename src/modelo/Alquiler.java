@@ -2,7 +2,10 @@ package modelo;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 
 /**
  * Clase abstracta que representa un alquiler de departamento.
@@ -12,9 +15,20 @@ public abstract class Alquiler {
     /** Separador de campos usado en los archivos CSV. */
     public static final String SEPARADOR = ";";
 
-    /** Formato de fecha dd/MM/yyyy (estricto: rechaza fechas como 31/02/2026). */
-    public static final DateTimeFormatter FORMATO_FECHA =
-            DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+    /**
+     * Formato de fecha dd/MM/yyyy.
+     * Al leer acepta el día y el mes con 1 o 2 dígitos (7/11/2026 o 07/11/2026);
+     * al escribir siempre usa 2 dígitos (07/11/2026), así el CSV mantiene un solo formato.
+     * Es estricto con las fechas inexistentes (rechaza 31/02/2026) y exige el año con 4 dígitos.
+     */
+    public static final DateTimeFormatter FORMATO_FECHA = new DateTimeFormatterBuilder()
+            .parseLenient()
+            .appendValue(ChronoField.DAY_OF_MONTH, 2).appendLiteral('/')
+            .appendValue(ChronoField.MONTH_OF_YEAR, 2).appendLiteral('/')
+            .parseStrict()
+            .appendValue(ChronoField.YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
+            .toFormatter()
+            .withResolverStyle(ResolverStyle.STRICT);
 
     private String id;
     private String idCliente;

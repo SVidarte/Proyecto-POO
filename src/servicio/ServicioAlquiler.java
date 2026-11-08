@@ -23,6 +23,7 @@ public class ServicioAlquiler {
     private static final String CABECERA =
             "id;idCliente;idPropietario;idDepartamento;fechaInicial;fechaFinal;montoPagar";
     private static final String PREFIJO = "A";
+    private static final String ARCHIVO_ELIMINADOS = "alquileres_eliminados.csv";
 
     private final File archivo;
 
@@ -104,38 +105,104 @@ public class ServicioAlquiler {
     }
 
     /**
-     * Elimina el alquiler con ese id.
+     * Elimina el alquiler con ese id. Su id queda registrado en alquileres_eliminados.csv para
+     * que nunca vuelva a usarse, y sus cuotas pendientes se eliminan de planificaciones_pago.csv
+     * (las cuotas que ya estaban pagadas se conservan en planificacion_pagos_realizados.csv).
      *
      * @return true si lo encontró y lo eliminó
      */
     public boolean eliminar(String id) throws IOException {
         List<Alquiler> lista = listar();
-        boolean eliminado = lista.removeIf(a -> a.getId().equalsIgnoreCase(id));
-        if (eliminado) {
-            reescribir(lista);
+        Alquiler objetivo = null;
+        for (Alquiler a : lista) {
+            if (a.getId().equalsIgnoreCase(id)) {
+                objetivo = a;
+                break;
+            }
         }
-        return eliminado;
+        if (objetivo == null) {
+            return false;
+        }
+        lista.remove(objetivo);
+        reescribir(lista);
+        registrarIdEliminado(objetivo.getId());
+        new ServicioPlanificacionPago().eliminarPorAlquiler(objetivo.getId());
+        return true;
     }
 
-    /** Genera el siguiente id: toma el número más alto registrado y le suma 1. */
+    /**
+     * Genera el siguiente id: toma el número más alto que haya existido y le suma 1.
+     * Cuenta los alquileres actuales, los eliminados (alquileres_eliminados.csv) y los alquileres
+     * que todavía aparecen en archivos de cuotas, así un id eliminado no vuelve a usarse.
+     */
     public String generarId() throws IOException {
         int maximo = 0;
         for (Alquiler alquiler : listar()) {
-            try {
-                int numero = Integer.parseInt(alquiler.getId().substring(PREFIJO.length()));
-                if (numero > maximo) {
-                    maximo = numero;
-                }
-            } catch (NumberFormatException | IndexOutOfBoundsException e) {
-                // id con formato raro: se ignora
-            }
+            maximo = Math.max(maximo, numeroDeId(alquiler.getId()));
         }
+        maximo = Math.max(maximo, mayorNumeroEnArchivo(ARCHIVO_ELIMINADOS, 0));
+        maximo = Math.max(maximo, mayorNumeroEnArchivo(modelo.PlanificacionPago.ARCHIVO, 1));
+        maximo = Math.max(maximo, mayorNumeroEnArchivo(modelo.PlanificacionPago.ARCHIVO_REALIZADOS, 1));
         return String.format("%s%04d", PREFIJO, maximo + 1);
     }
 
     // ---------------------------------------------------------------------
     // Métodos privados
     // ---------------------------------------------------------------------
+
+    /** true si el id aparece en alquileres_eliminados.csv (el alquiler existió y fue eliminado). */
+    public static boolean estaEliminado(String id) {
+        File f = new File(ARCHIVO_ELIMINADOS);
+        if (id == null || !f.exists()) {
+            return false;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                if (linea.trim().equalsIgnoreCase(id.trim())) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error al leer " + ARCHIVO_ELIMINADOS + ": " + e.getMessage());
+        }
+        return false;
+    }
+
+    private void registrarIdEliminado(String id) throws IOException {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_ELIMINADOS, true))) {
+            pw.println(id);
+        }
+    }
+
+    private int numeroDeId(String id) {
+        try {
+            return Integer.parseInt(id.substring(PREFIJO.length()));
+        } catch (NumberFormatException | IndexOutOfBoundsException | NullPointerException e) {
+            return 0; // id con formato raro: se ignora
+        }
+    }
+
+    /** Mayor número de id de alquiler que aparece en la columna indicada de un CSV (0 si no existe). */
+    private int mayorNumeroEnArchivo(String ruta, int columna) {
+        int mayor = 0;
+        File f = new File(ruta);
+        if (!f.exists()) {
+            return 0;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                String[] partes = linea.split(Alquiler.SEPARADOR);
+                if (partes.length > columna) {
+                    mayor = Math.max(mayor, numeroDeId(partes[columna].trim()));
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error al leer " + ruta + ": " + e.getMessage());
+        }
+        return mayor;
+    }
 
     private Alquiler convertirLinea(String linea) {
         String[] p = linea.split(Alquiler.SEPARADOR, -1);
