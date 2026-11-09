@@ -16,6 +16,7 @@ import java.util.Locale;
 public class VistaPago extends JFrame {
 
     private final ServicioPago servicio = new ServicioPago();
+    private final String idCliente; // null = sin restricción; con un cliente, solo ve y registra pagos de sus cuotas
 
     // Formulario
     private JTextField txtId;
@@ -33,8 +34,13 @@ public class VistaPago extends JFrame {
     private DefaultTableModel modeloTabla;
 
     public VistaPago() {
-        setTitle("Registro de Pagos");
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        this(null);
+    }
+
+    public VistaPago(String idCliente) {
+        this.idCliente = idCliente;
+        setTitle(idCliente == null ? "Registro de Pagos" : "Mis Pagos");
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(800, 520);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
@@ -43,7 +49,7 @@ public class VistaPago extends JFrame {
         add(crearPanelCentral(), BorderLayout.CENTER);
 
         limpiarFormulario();
-        cargarTabla(servicio.listar());
+        cargarTabla(pagosVisibles());
     }
 
     // ---------------------------------------------------------------
@@ -115,7 +121,7 @@ public class VistaPago extends JFrame {
         btnBuscar.addActionListener(e -> buscar());
         btnListar.addActionListener(e -> {
             txtBuscar.setText("");
-            cargarTabla(servicio.listar());
+            cargarTabla(pagosVisibles());
         });
 
         JPanel panelBusqueda = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
@@ -154,11 +160,11 @@ public class VistaPago extends JFrame {
     private void guardar() {
         try {
             Pago pago = leerFormulario();
-            servicio.guardar(pago);
+            servicio.guardar(pago, idCliente);
             JOptionPane.showMessageDialog(this, "Pago guardado con id " + pago.getId() + ".");
             limpiarFormulario();
-            cargarTabla(servicio.listar());
-        } catch (IllegalArgumentException ex) {
+            cargarTabla(pagosVisibles());
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             mostrarError(ex.getMessage());
         }
     }
@@ -171,14 +177,14 @@ public class VistaPago extends JFrame {
         try {
             Pago pago = leerFormulario();
             pago.setId(txtId.getText());
-            if (servicio.modificar(pago)) {
+            if (servicio.modificar(pago, idCliente)) {
                 JOptionPane.showMessageDialog(this, "Pago modificado correctamente.");
                 limpiarFormulario();
-                cargarTabla(servicio.listar());
+                cargarTabla(pagosVisibles());
             } else {
                 mostrarError("No se encontró el pago " + txtId.getText() + ".");
             }
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException | IllegalStateException ex) {
             mostrarError(ex.getMessage());
         }
     }
@@ -195,7 +201,7 @@ public class VistaPago extends JFrame {
             if (servicio.eliminar(txtId.getText())) {
                 JOptionPane.showMessageDialog(this, "Pago eliminado correctamente.");
                 limpiarFormulario();
-                cargarTabla(servicio.listar());
+                cargarTabla(pagosVisibles());
             } else {
                 mostrarError("No se encontró el pago " + txtId.getText() + ".");
             }
@@ -208,7 +214,7 @@ public class VistaPago extends JFrame {
             mostrarError("Escribe un id de pago o de planificación para buscar.");
             return;
         }
-        List<Pago> resultado = servicio.buscar(texto);
+        List<Pago> resultado = (idCliente == null) ? servicio.buscar(texto) : servicio.buscarDeCliente(texto, idCliente);
         cargarTabla(resultado);
         if (resultado.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No se encontraron resultados.");
@@ -291,6 +297,11 @@ public class VistaPago extends JFrame {
             cmbMetodo.setEnabled(true);
             lblMetodo.setText("Método:");
         }
+    }
+
+    /** Todos los pagos, o solo los de las cuotas del cliente cuando se abre desde el menú de cliente. */
+    private List<Pago> pagosVisibles() {
+        return (idCliente == null) ? servicio.listar() : servicio.listarPorCliente(idCliente);
     }
 
     private void mostrarError(String mensaje) {

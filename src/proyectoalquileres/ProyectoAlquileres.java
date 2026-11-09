@@ -1,14 +1,11 @@
 package proyectoalquileres;
 
-import vista.*;
+import vista.MenuPrincipal;
 
 public class ProyectoAlquileres {
 
     public static void main(String[] args) {
-        java.awt.EventQueue.invokeLater(() -> {
-            new VistaCliente().setVisible(true);
-            new VistaPropietario().setVisible(true);
-        });
+        java.awt.EventQueue.invokeLater(() -> new MenuPrincipal().setVisible(true));
     }
-    
+
 }

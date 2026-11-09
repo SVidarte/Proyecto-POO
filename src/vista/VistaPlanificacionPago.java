@@ -1,6 +1,8 @@
 package vista;
 
+import modelo.Alquiler;
 import modelo.PlanificacionPago;
+import servicio.ServicioAlquiler;
 import servicio.ServicioPlanificacionPago;
 
 import javax.swing.*;
@@ -16,12 +18,18 @@ import java.util.Locale;
 public class VistaPlanificacionPago extends JFrame {
 
     private final ServicioPlanificacionPago servicio = new ServicioPlanificacionPago();
+    private final String idCliente; // null = sin restricción; con un cliente, solo ve las cuotas de sus alquileres
 
     private JTextField txtIdAlquiler;
     private DefaultTableModel modeloTabla;
 
     public VistaPlanificacionPago() {
-        setTitle("Planificación de Pagos");
+        this(null);
+    }
+
+    public VistaPlanificacionPago(String idCliente) {
+        this.idCliente = idCliente;
+        setTitle(idCliente == null ? "Planificación de Pagos" : "Mi Planificación de Pagos");
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(1000, 450);
         setLocationRelativeTo(null);
@@ -36,12 +44,14 @@ public class VistaPlanificacionPago extends JFrame {
         btnGenerar.addActionListener(e -> generarCuotas());
         btnFiltrar.addActionListener(e -> filtrar());
         btnPagadas.addActionListener(e -> verPagadas());
-        btnTodos.addActionListener(e -> cargarTabla(servicio.listar()));
+        btnTodos.addActionListener(e -> cargarTabla(cuotasVisibles()));
 
         JPanel panelSuperior = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         panelSuperior.add(new JLabel("ID alquiler:"));
         panelSuperior.add(txtIdAlquiler);
-        panelSuperior.add(btnGenerar);
+        if (idCliente == null) { // las cuotas de un alquiler se generan solas cuando el cliente lo acepta
+            panelSuperior.add(btnGenerar);
+        }
         panelSuperior.add(btnFiltrar);
         panelSuperior.add(btnPagadas);
         panelSuperior.add(btnTodos);
@@ -60,7 +70,7 @@ public class VistaPlanificacionPago extends JFrame {
         centro.add(new JScrollPane(tabla), BorderLayout.CENTER);
         add(centro, BorderLayout.CENTER);
 
-        cargarTabla(servicio.listar());
+        cargarTabla(cuotasVisibles());
     }
 
     private void generarCuotas() {
@@ -81,6 +91,11 @@ public class VistaPlanificacionPago extends JFrame {
         String id = txtIdAlquiler.getText().trim();
         if (id.isEmpty()) {
             mostrarError("Ingrese el id del alquiler.");
+            return;
+        }
+        if (!esAlquilerVisible(id)) {
+            cargarTabla(java.util.Collections.<PlanificacionPago>emptyList());
+            mostrarError("Ese alquiler no existe o no es suyo.");
             return;
         }
         if (!servicio.alquilerExiste(id)) {
@@ -104,6 +119,11 @@ public class VistaPlanificacionPago extends JFrame {
         String id = txtIdAlquiler.getText().trim();
         if (id.isEmpty()) {
             mostrarError("Ingrese el id del alquiler.");
+            return;
+        }
+        if (!esAlquilerVisible(id)) {
+            cargarTabla(java.util.Collections.<PlanificacionPago>emptyList());
+            mostrarError("Ese alquiler no existe o no es suyo.");
             return;
         }
         boolean existe = servicio.alquilerExiste(id);
@@ -138,6 +158,28 @@ public class VistaPlanificacionPago extends JFrame {
                     p.isVerificador()
             });
         }
+    }
+
+    /** Ids (en mayúsculas) de los alquileres del cliente. */
+    private java.util.Set<String> misAlquileres() {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        try {
+            for (Alquiler a : new ServicioAlquiler().listarPorCliente(idCliente)) {
+                ids.add(a.getId().toUpperCase());
+            }
+        } catch (IOException e) {
+            mostrarError("No se pudo leer alquiler.csv: " + e.getMessage());
+        }
+        return ids;
+    }
+
+    private boolean esAlquilerVisible(String id) {
+        return idCliente == null || misAlquileres().contains(id.trim().toUpperCase());
+    }
+
+    /** Todas las cuotas pendientes, o solo las de los alquileres del cliente. */
+    private List<PlanificacionPago> cuotasVisibles() {
+        return (idCliente == null) ? servicio.listar() : servicio.listarPorAlquileres(misAlquileres());
     }
 
     private void mostrarError(String mensaje) {

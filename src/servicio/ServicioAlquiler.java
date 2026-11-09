@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import modelo.Alquiler;
 import modelo.AlquilerDepartamento;
+import modelo.Departamento;
 
 /**
  * Servicio que administra los alquileres guardados en el archivo alquiler.csv.
@@ -105,7 +106,8 @@ public class ServicioAlquiler {
     }
 
     /**
-     * Elimina el alquiler con ese id. Su id queda registrado en alquileres_eliminados.csv para
+     * Elimina el alquiler con ese id. Si el departamento ya no tiene otro alquiler con cliente, vuelve a quedar
+     * Disponible. Su id queda registrado en alquileres_eliminados.csv para
      * que nunca vuelva a usarse, y sus cuotas pendientes se eliminan de planificaciones_pago.csv
      * (las cuotas que ya estaban pagadas se conservan en planificacion_pagos_realizados.csv).
      *
@@ -126,8 +128,125 @@ public class ServicioAlquiler {
         lista.remove(objetivo);
         reescribir(lista);
         registrarIdEliminado(objetivo.getId());
+        liberarDepartamento(objetivo, lista);
         new ServicioPlanificacionPago().eliminarPorAlquiler(objetivo.getId());
         return true;
+    }
+
+    // ---------------------------------------------------------------------
+    // Consultas por propietario y cliente
+    // ---------------------------------------------------------------------
+
+    public List<Alquiler> listarPorPropietario(String idPropietario) throws IOException {
+        List<Alquiler> resultado = new ArrayList<>();
+        for (Alquiler a : listar()) {
+            if (a.getIdPropietario().equalsIgnoreCase(idPropietario)) {
+                resultado.add(a);
+            }
+        }
+        return resultado;
+    }
+
+    public List<Alquiler> listarPorCliente(String idCliente) throws IOException {
+        List<Alquiler> resultado = new ArrayList<>();
+        for (Alquiler a : listar()) {
+            if (a.getIdCliente() != null && a.getIdCliente().equalsIgnoreCase(idCliente)) {
+                resultado.add(a);
+            }
+        }
+        return resultado;
+    }
+
+    /** Alquileres sin cliente cuyo departamento está Disponible: los que un cliente puede aceptar. */
+    public List<Alquiler> listarDisponibles() throws IOException {
+        List<Departamento> departamentos = new ServicioDepartamento().listarDepartamento();
+        List<Alquiler> resultado = new ArrayList<>();
+        for (Alquiler a : listar()) {
+            if (a.getIdCliente() != null && !a.getIdCliente().trim().isEmpty()) {
+                continue;
+            }
+            for (Departamento d : departamentos) {
+                if (d.getId_departamento().equalsIgnoreCase(a.getIdDepartamento())
+                        && Departamento.DISPONIBLE.equals(d.getEstado())) {
+                    resultado.add(a);
+                    break;
+                }
+            }
+        }
+        return resultado;
+    }
+
+    /**
+     * Un cliente acepta un alquiler: el alquiler queda a su nombre, el departamento pasa a Ocupado y se
+     * generan las cuotas mensuales.
+     *
+     * @return cantidad de cuotas generadas
+     * @throws IllegalArgumentException si el alquiler ya no está disponible
+     */
+    public int aceptarAlquiler(String idAlquiler, String idCliente) throws IOException {
+        Alquiler alquiler = buscar(idAlquiler);
+        if (alquiler == null) {
+            throw new IllegalArgumentException("El alquiler " + idAlquiler + " no existe.");
+        }
+        if (alquiler.getIdCliente() != null && !alquiler.getIdCliente().trim().isEmpty()) {
+            throw new IllegalArgumentException("Este alquiler ya fue aceptado por otro cliente.");
+        }
+        ServicioDepartamento servicioDepartamento = new ServicioDepartamento();
+        Departamento departamento = servicioDepartamento.buscarPorId(alquiler.getIdDepartamento());
+        if (departamento == null || !Departamento.DISPONIBLE.equals(departamento.getEstado())) {
+            throw new IllegalArgumentException("El departamento de este alquiler ya no está disponible.");
+        }
+        if (new ServicioCliente().buscar(idCliente) == null) {
+            throw new IllegalArgumentException("El cliente " + idCliente + " no existe.");
+        }
+
+        alquiler.setIdCliente(idCliente);
+        modificar(alquiler);
+        try {
+            int cuotas = new ServicioPlanificacionPago().generarCuotas(alquiler.getId()).size();
+            servicioDepartamento.cambiarEstado(departamento.getId_departamento(), Departamento.OCUPADO);
+            return cuotas;
+        } catch (RuntimeException e) {
+            alquiler.setIdCliente(""); // si fallan las cuotas, el alquiler queda como estaba
+            modificar(alquiler);
+            throw e;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Alquileres pagados por completo
+    // ---------------------------------------------------------------------
+
+    /** true si ya tiene cuotas pagadas y no le queda ninguna pendiente. */
+    public boolean estaTotalmentePagado(String idAlquiler) {
+        ServicioPlanificacionPago cuotas = new ServicioPlanificacionPago();
+        return !cuotas.tieneCuotasPendientes(idAlquiler) && cuotas.tieneCuotasPagadas(idAlquiler);
+    }
+
+    /**
+     * Un alquiler con todas sus cuotas pagadas no se elimina (ni en cascada al eliminar un cliente o un
+     * propietario) hasta que llegue el día de su fecha final.
+     */
+    public boolean estaProtegido(Alquiler alquiler) {
+        return alquiler.getFechaFinal().isAfter(LocalDate.now()) && estaTotalmentePagado(alquiler.getId());
+    }
+
+    /**
+     * Elimina los alquileres totalmente pagados cuya fecha final ya llegó (hoy o antes).
+     *
+     * @return cuántos eliminó
+     */
+    public int limpiarFinalizados() throws IOException {
+        int eliminados = 0;
+        LocalDate hoy = LocalDate.now();
+        for (Alquiler a : listar()) {
+            if (!a.getFechaFinal().isAfter(hoy) && estaTotalmentePagado(a.getId())) {
+                if (eliminar(a.getId())) {
+                    eliminados++;
+                }
+            }
+        }
+        return eliminados;
     }
 
     /**
@@ -167,6 +286,16 @@ public class ServicioAlquiler {
             System.err.println("Error al leer " + ARCHIVO_ELIMINADOS + ": " + e.getMessage());
         }
         return false;
+    }
+
+    private void liberarDepartamento(Alquiler eliminado, List<Alquiler> restantes) {
+        for (Alquiler a : restantes) {
+            if (a.getIdDepartamento().equalsIgnoreCase(eliminado.getIdDepartamento())
+                    && a.getIdCliente() != null && !a.getIdCliente().trim().isEmpty()) {
+                return; // el departamento sigue alquilado por otro alquiler con cliente
+            }
+        }
+        new ServicioDepartamento().cambiarEstado(eliminado.getIdDepartamento(), Departamento.DISPONIBLE);
     }
 
     private void registrarIdEliminado(String id) throws IOException {
@@ -230,7 +359,11 @@ public class ServicioAlquiler {
     }
 
     private void validar(Alquiler alquiler) {
-        validarTexto(alquiler.getIdCliente(), "El id del cliente");
+        if (alquiler.getIdCliente() == null) {
+            alquiler.setIdCliente(""); // alquiler sin cliente: lo acepta un cliente más adelante
+        } else if (!alquiler.getIdCliente().trim().isEmpty()) {
+            validarTexto(alquiler.getIdCliente(), "El id del cliente");
+        }
         validarTexto(alquiler.getIdPropietario(), "El id del propietario");
         validarTexto(alquiler.getIdDepartamento(), "El id del departamento");
         if (alquiler.getFechaInicial() == null || alquiler.getFechaFinal() == null) {

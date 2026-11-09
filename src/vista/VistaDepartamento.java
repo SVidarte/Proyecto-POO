@@ -13,6 +13,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 public class VistaDepartamento extends JFrame {
+    private final String idPropietario; // propietario dueño de los departamentos que se muestran y crean
     private ServicioDepartamento servicio;
     private JTextField txtId;
     private JTextField txtPiso;
@@ -31,7 +32,8 @@ public class VistaDepartamento extends JFrame {
     private JButton btnLimpiar;
     private JButton btnModificar;
 
-    public VistaDepartamento(){
+    public VistaDepartamento(String idPropietario){
+        this.idPropietario = idPropietario;
         servicio = new ServicioDepartamento();
         inicializarComponentes();
         cargarPropietarios();
@@ -168,16 +170,14 @@ public class VistaDepartamento extends JFrame {
         add(scroll);
     }
 
-    /** Llena el combo con los propietarios registrados ("P0001 - Nombres Apellidos"), conservando la selección. */
+    /** El propietario es fijo: la lista solo muestra al propietario que inició sesión y no se puede cambiar. */
     private void cargarPropietarios() {
-        String seleccionado = idPropietarioSeleccionado();
         cmbPropietario.removeAllItems();
-        for (Propietario p : new ServicioPropietario().listar()) {
-            cmbPropietario.addItem(p.getId() + " - " + p.getNombres() + " " + p.getApellidos());
-        }
-        if (seleccionado != null) {
-            seleccionarPropietario(seleccionado);
-        }
+        Propietario p = new ServicioPropietario().buscar(idPropietario);
+        cmbPropietario.addItem(p != null
+                ? p.getId() + " - " + p.getNombres() + " " + p.getApellidos()
+                : idPropietario + " - (no registrado)");
+        cmbPropietario.setEnabled(false);
     }
 
     /** Devuelve el id del propietario elegido en el combo, o null si no hay ninguno. */
@@ -207,7 +207,7 @@ public class VistaDepartamento extends JFrame {
 
     private void cargarTabla(){
         modeloTabla.setRowCount(0);
-        List<Departamento> lista = servicio.listarDepartamento();
+        List<Departamento> lista = servicio.listarPorPropietario(idPropietario);
         for(Departamento d : lista){
             agregarFila(d);
         }
@@ -288,7 +288,7 @@ public class VistaDepartamento extends JFrame {
                         "El departamento no existe.",
                         "Aviso", JOptionPane.WARNING_MESSAGE);
             }
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             JOptionPane.showMessageDialog(this,
                     e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -308,6 +308,7 @@ public class VistaDepartamento extends JFrame {
      }
 
     List<Departamento> lista = servicio.buscarPorDireccion(direccion);
+    lista.removeIf(d -> !d.getId_propietario().equalsIgnoreCase(idPropietario)); // solo los suyos
 
     modeloTabla.setRowCount(0);
 
@@ -378,9 +379,5 @@ public class VistaDepartamento extends JFrame {
     private void mostrarTodos() {
     txtBuscarDireccion.setText("");
     cargarTabla();
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new VistaDepartamento().setVisible(true));
     }
 }

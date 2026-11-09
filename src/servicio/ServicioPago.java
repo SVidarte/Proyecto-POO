@@ -9,8 +9,10 @@ import java.io.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ServicioPago {
 
@@ -39,6 +41,73 @@ public class ServicioPago {
         listaPagos.add(pago);
         ajustarMontoPagado(plan, pago.getMonto());
         sincronizarArchivo();
+    }
+
+    // ---------------------------------------------------------------
+    // Pagos de un cliente: solo ve y registra pagos de sus propias cuotas
+    // ---------------------------------------------------------------
+
+    /** Ids (en mayúsculas) de todas las cuotas, pendientes o ya pagadas, de los alquileres de un cliente. */
+    public Set<String> cuotasDelCliente(String idCliente) {
+        Set<String> ids = new HashSet<>();
+        try {
+            for (Alquiler a : new ServicioAlquiler().listarPorCliente(idCliente)) {
+                for (PlanificacionPago p : servicioPlanificacion.listarPorAlquiler(a.getId())) {
+                    ids.add(p.getId().toUpperCase());
+                }
+                for (PlanificacionPago p : servicioPlanificacion.listarPagadasPorAlquiler(a.getId())) {
+                    ids.add(p.getId().toUpperCase());
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("No se pudo leer alquiler.csv: " + e.getMessage());
+        }
+        return ids;
+    }
+
+    /** Pagos hechos a cuotas de los alquileres del cliente. */
+    public List<Pago> listarPorCliente(String idCliente) {
+        Set<String> cuotas = cuotasDelCliente(idCliente);
+        List<Pago> resultado = new ArrayList<>();
+        for (Pago p : listaPagos) {
+            if (cuotas.contains(p.getIdPlanificacionPago().toUpperCase())) {
+                resultado.add(p);
+            }
+        }
+        return resultado;
+    }
+
+    /** Como buscar(texto), pero solo entre los pagos del cliente. */
+    public List<Pago> buscarDeCliente(String texto, String idCliente) {
+        Set<String> cuotas = cuotasDelCliente(idCliente);
+        List<Pago> resultado = new ArrayList<>();
+        for (Pago p : buscar(texto)) {
+            if (cuotas.contains(p.getIdPlanificacionPago().toUpperCase())) {
+                resultado.add(p);
+            }
+        }
+        return resultado;
+    }
+
+    /** Guarda un pago comprobando que la cuota pertenezca a un alquiler del cliente (idCliente null = sin restricción). */
+    public void guardar(Pago pago, String idCliente) {
+        verificarCuotaDelCliente(pago, idCliente);
+        guardar(pago);
+    }
+
+    public boolean modificar(Pago nuevo, String idCliente) {
+        verificarCuotaDelCliente(nuevo, idCliente);
+        return modificar(nuevo);
+    }
+
+    private void verificarCuotaDelCliente(Pago pago, String idCliente) {
+        if (idCliente == null) {
+            return;
+        }
+        String cuota = pago.getIdPlanificacionPago() == null ? "" : pago.getIdPlanificacionPago().trim().toUpperCase();
+        if (!cuotasDelCliente(idCliente).contains(cuota)) {
+            throw new IllegalArgumentException("Esa planificación de pago no pertenece a sus alquileres.");
+        }
     }
 
     public List<Pago> listar() {
@@ -284,4 +353,4 @@ public class ServicioPago {
             System.err.println("Error al escribir " + ARCHIVO + ": " + e.getMessage());
         }
     }
-}
+}   

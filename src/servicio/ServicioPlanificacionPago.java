@@ -123,6 +123,44 @@ public class ServicioPlanificacionPago {
         return resultado;
     }
 
+    /** true si el alquiler todavía tiene cuotas por pagar. */
+    public boolean tieneCuotasPendientes(String idAlquiler) {
+        cargarDesdeArchivo();
+        for (PlanificacionPago p : listaPlanificaciones) {
+            if (p.getIdAlquiler().equalsIgnoreCase(idAlquiler)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** true si el alquiler tiene al menos una cuota ya pagada por completo. */
+    public boolean tieneCuotasPagadas(String idAlquiler) {
+        cargarDesdeArchivo();
+        for (PlanificacionPago p : leerCuotas(ARCHIVO_REALIZADOS)) {
+            if (p.getIdAlquiler().equalsIgnoreCase(idAlquiler)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Cuotas pendientes de varios alquileres (por ejemplo, los de un cliente). */
+    public List<PlanificacionPago> listarPorAlquileres(java.util.Collection<String> idsAlquiler) {
+        cargarDesdeArchivo();
+        Set<String> ids = new HashSet<>();
+        for (String id : idsAlquiler) {
+            ids.add(id.toUpperCase());
+        }
+        List<PlanificacionPago> resultado = new ArrayList<>();
+        for (PlanificacionPago p : listaPlanificaciones) {
+            if (ids.contains(p.getIdAlquiler().toUpperCase())) {
+                resultado.add(p);
+            }
+        }
+        return resultado;
+    }
+
     public PlanificacionPago buscar(String id) {
         cargarDesdeArchivo();
         for (PlanificacionPago p : listaPlanificaciones) {

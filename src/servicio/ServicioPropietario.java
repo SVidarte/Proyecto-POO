@@ -63,13 +63,29 @@ public class ServicioPropietario {
         throw new IllegalArgumentException("El método de pago debe ser Transferencia o Efectivo.");
     }
 
-    private String generarIdAutoIncremental() {
-        if (listaPropietarios.isEmpty()) {
-            return "P0001";
+    /** Elimina el propietario. @return true si existía */
+    public boolean eliminar(String id) {
+        cargarDesdeArchivo();
+        boolean eliminado = listaPropietarios.removeIf(p -> p.getId().equalsIgnoreCase(id));
+        if (eliminado) {
+            sincronizarArchivo();
         }
-        String ultimoId = listaPropietarios.get(listaPropietarios.size() - 1).getId();
-        int numero = Integer.parseInt(ultimoId.substring(1)) + 1;
-        return String.format("P%04d", numero);
+        return eliminado;
+    }
+
+    /** Siguiente id (P0001, P0002, ...): nunca reutiliza un número que todavía aparece en otros archivos. */
+    private String generarIdAutoIncremental() {
+        int mayor = 0;
+        for (Propietario p : listaPropietarios) {
+            try {
+                mayor = Math.max(mayor, Integer.parseInt(p.getId().substring(1)));
+            } catch (NumberFormatException | IndexOutOfBoundsException e) {
+                // id con formato raro: se ignora
+            }
+        }
+        mayor = Math.max(mayor, UtilIds.mayorNumero("alquiler.csv", 2, "P"));
+        mayor = Math.max(mayor, UtilIds.mayorNumero("departamentos.csv", 1, "P"));
+        return String.format("P%04d", mayor + 1);
     }
 
     private void cargarDesdeArchivo() {

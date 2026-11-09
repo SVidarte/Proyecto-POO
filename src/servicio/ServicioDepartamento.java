@@ -1,5 +1,6 @@
 package servicio;
 
+import modelo.Alquiler;
 import modelo.Departamento;
 import java.io.*;
 import java.util.ArrayList;
@@ -38,6 +39,16 @@ public class ServicioDepartamento {
 
     /** @return true si encontró el departamento y lo eliminó */
     public boolean eliminarDepartamento(String id) {
+        try {
+            for (Alquiler a : new ServicioAlquiler().listar()) {
+                if (a.getIdDepartamento().equalsIgnoreCase(id)) {
+                    throw new IllegalArgumentException(
+                            "El departamento tiene alquileres registrados. Elimine primero esos alquileres.");
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("No se pudo leer alquiler.csv: " + e.getMessage());
+        }
         List<Departamento> lista = listarDepartamento();
         boolean eliminado = lista.removeIf(d -> d.getId_departamento().equalsIgnoreCase(id));
         if (eliminado) {
@@ -114,6 +125,42 @@ public class ServicioDepartamento {
         return false;
     }
 
+    /** Departamentos que pertenecen a un propietario. */
+    public List<Departamento> listarPorPropietario(String idPropietario) {
+        List<Departamento> resultado = new ArrayList<>();
+        for (Departamento d : listarDepartamento()) {
+            if (d.getId_propietario().equalsIgnoreCase(idPropietario)) {
+                resultado.add(d);
+            }
+        }
+        return resultado;
+    }
+
+    /** Elimina todos los departamentos de un propietario (se usa al eliminar al propietario). @return cuántos eliminó */
+    public int eliminarPorPropietario(String idPropietario) {
+        List<Departamento> lista = listarDepartamento();
+        int antes = lista.size();
+        lista.removeIf(d -> d.getId_propietario().equalsIgnoreCase(idPropietario));
+        int eliminados = antes - lista.size();
+        if (eliminados > 0) {
+            sincronizarArchivo(lista);
+        }
+        return eliminados;
+    }
+
+    /** Cambia el estado (Disponible u Ocupado) de un departamento. @return true si lo encontró */
+    public boolean cambiarEstado(String id, String estado) {
+        List<Departamento> lista = listarDepartamento();
+        for (Departamento d : lista) {
+            if (d.getId_departamento().equalsIgnoreCase(id)) {
+                d.setEstado(estado);
+                sincronizarArchivo(lista);
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ---------------------------------------------------------------------
     // Métodos privados
     // ---------------------------------------------------------------------
@@ -131,6 +178,7 @@ public class ServicioDepartamento {
                 // id con formato raro: se ignora
             }
         }
+        mayor = Math.max(mayor, UtilIds.mayorNumero("alquiler.csv", 3, PREFIJO)); // no reutilizar ids de alquileres existentes
         return String.format("%s%04d", PREFIJO, mayor + 1);
     }
 

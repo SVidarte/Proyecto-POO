@@ -46,13 +46,28 @@ public class ServicioCliente {
         return false;
     }
 
-    private String generarIdAutoIncremental() {
-        if (listaClientes.isEmpty()) {
-            return "C0001";
+    /** Elimina el cliente. @return true si existía */
+    public boolean eliminar(String id) {
+        cargarDesdeArchivo();
+        boolean eliminado = listaClientes.removeIf(c -> c.getId().equalsIgnoreCase(id));
+        if (eliminado) {
+            sincronizarArchivo();
         }
-        String ultimoId = listaClientes.get(listaClientes.size() - 1).getId(); // Ej: C0005
-        int numero = Integer.parseInt(ultimoId.substring(1)) + 1;
-        return String.format("C%04d", numero);
+        return eliminado;
+    }
+
+    /** Siguiente id (C0001, C0002, ...): nunca reutiliza un número que todavía aparece en alquiler.csv. */
+    private String generarIdAutoIncremental() {
+        int mayor = 0;
+        for (Cliente c : listaClientes) {
+            try {
+                mayor = Math.max(mayor, Integer.parseInt(c.getId().substring(1)));
+            } catch (NumberFormatException | IndexOutOfBoundsException e) {
+                // id con formato raro: se ignora
+            }
+        }
+        mayor = Math.max(mayor, UtilIds.mayorNumero("alquiler.csv", 1, "C"));
+        return String.format("C%04d", mayor + 1);
     }
 
     private void cargarDesdeArchivo() {
