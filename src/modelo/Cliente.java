@@ -14,4 +14,9 @@ public class Cliente extends Persona {
 
     public String getReferencia() { return referencia; }
     public void setReferencia(String referencia) { this.referencia = referencia; }
+
+    @Override
+    public String toCSV() {
+        return id + ";" + dni + ";" + nombres + ";" + apellidos + ";" + email + ";" + celular + ";" + sexo + ";" + referencia;
+    }
 }

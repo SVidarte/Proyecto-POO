@@ -13,46 +13,60 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
+import modelo.DatosInvalidosException;
+
 /**
- * Cuentas de acceso (usuario y contraseña) de un tipo de usuario: administrador, propietario o cliente.
- * Cada tipo tiene su archivo: dadm.csv, dprop.csv y dcli.csv (se crean solos si no existen).
+ * Cuentas de acceso (usuario y contraseña) de los tres tipos de usuario: administrador, propietario y cliente.
+ * Todas se guardan en un único archivo, cuentas.csv (se crea solo si no existe).
  *
- * Formato de cada línea:  usuario;sal;hash;idPerfil
+ * Formato de cada línea:  rol;usuario;sal;hash;idPerfil
  *  - La contraseña nunca se guarda: se guarda su hash SHA-256 calculado con una sal aleatoria propia de cada usuario.
  *  - idPerfil es el id del Propietario o Cliente asociado a la cuenta ("-" mientras no haya registrado sus datos).
+ *  - Cada instancia trabaja solo con las cuentas de su rol: el usuario es único dentro de cada rol.
  */
 public class ServicioCuenta {
 
-    public static final String ARCHIVO_ADMINISTRADOR = "dadm.csv";
-    public static final String ARCHIVO_PROPIETARIO = "dprop.csv";
-    public static final String ARCHIVO_CLIENTE = "dcli.csv";
+    public static final String ARCHIVO = "cuentas.csv";
+
+    public static final String ROL_ADMINISTRADOR = "ADMINISTRADOR";
+    public static final String ROL_PROPIETARIO = "PROPIETARIO";
+    public static final String ROL_CLIENTE = "CLIENTE";
 
     private static final String SIN_PERFIL = "-";
     private static final int LONGITUD_MINIMA_CONTRASENA = 4;
 
-    private final File archivo;
+    // columnas de cada fila
+    private static final int ROL = 0;
+    private static final int USUARIO = 1;
+    private static final int SAL = 2;
+    private static final int HASH = 3;
+    private static final int PERFIL = 4;
 
-    public ServicioCuenta(String ruta) {
-        archivo = new File(ruta);
+    private final File archivo = new File(ARCHIVO);
+    private final String rol;
+
+    public ServicioCuenta(String rol) {
+        this.rol = rol;
         if (!archivo.exists()) {
             try {
                 archivo.createNewFile();
             } catch (IOException e) {
-                throw new IllegalStateException("No se pudo crear " + ruta + ": " + e.getMessage());
+                throw new IllegalStateException("No se pudo crear " + ARCHIVO + ": " + e.getMessage());
             }
+            importarArchivosAnteriores();
         }
     }
 
     public static ServicioCuenta administradores() {
-        return new ServicioCuenta(ARCHIVO_ADMINISTRADOR);
+        return new ServicioCuenta(ROL_ADMINISTRADOR);
     }
 
     public static ServicioCuenta propietarios() {
-        return new ServicioCuenta(ARCHIVO_PROPIETARIO);
+        return new ServicioCuenta(ROL_PROPIETARIO);
     }
 
     public static ServicioCuenta clientes() {
-        return new ServicioCuenta(ARCHIVO_CLIENTE);
+        return new ServicioCuenta(ROL_CLIENTE);
     }
 
     // ---------------------------------------------------------------
@@ -62,29 +76,29 @@ public class ServicioCuenta {
     /**
      * Crea una cuenta nueva.
      *
-     * @throws IllegalArgumentException si falta algún dato, las contraseñas no coinciden o el usuario ya existe
+     * @throws DatosInvalidosException si falta algún dato, las contraseñas no coinciden o el usuario ya existe
      */
     public void registrar(String usuario, String contrasena, String confirmacion) {
         String u = usuario == null ? "" : usuario.trim();
         if (u.isEmpty()) {
-            throw new IllegalArgumentException("Ingrese un usuario.");
+            throw new DatosInvalidosException("Ingrese un usuario.");
         }
         if (u.contains(";")) {
-            throw new IllegalArgumentException("El usuario no puede contener el carácter \";\".");
+            throw new DatosInvalidosException("El usuario no puede contener el carácter \";\".");
         }
         if (contrasena == null || contrasena.length() < LONGITUD_MINIMA_CONTRASENA) {
-            throw new IllegalArgumentException(
+            throw new DatosInvalidosException(
                     "La contraseña debe tener al menos " + LONGITUD_MINIMA_CONTRASENA + " caracteres.");
         }
         if (!contrasena.equals(confirmacion)) {
-            throw new IllegalArgumentException("Las contraseñas no coinciden.");
+            throw new DatosInvalidosException("Las contraseñas no coinciden.");
         }
         List<String[]> cuentas = leer();
         if (buscar(cuentas, u) != null) {
-            throw new IllegalArgumentException("El usuario \"" + u + "\" ya existe.");
+            throw new DatosInvalidosException("El usuario \"" + u + "\" ya existe.");
         }
         String sal = nuevaSal();
-        cuentas.add(new String[]{u, sal, hash(sal, contrasena), SIN_PERFIL});
+        cuentas.add(new String[]{rol, u, sal, hash(sal, contrasena), SIN_PERFIL});
         escribir(cuentas);
     }
 
@@ -98,8 +112,8 @@ public class ServicioCuenta {
             return false;
         }
         return MessageDigest.isEqual(
-                hash(cuenta[1], contrasena).getBytes(StandardCharsets.UTF_8),
-                cuenta[2].getBytes(StandardCharsets.UTF_8));
+                hash(cuenta[SAL], contrasena).getBytes(StandardCharsets.UTF_8),
+                cuenta[HASH].getBytes(StandardCharsets.UTF_8));
     }
 
     // ---------------------------------------------------------------
@@ -109,10 +123,10 @@ public class ServicioCuenta {
     /** Id del perfil asociado al usuario, o null si todavía no registró sus datos. */
     public String perfilDe(String usuario) {
         String[] cuenta = buscar(leer(), usuario == null ? "" : usuario.trim());
-        if (cuenta == null || SIN_PERFIL.equals(cuenta[3])) {
+        if (cuenta == null || SIN_PERFIL.equals(cuenta[PERFIL])) {
             return null;
         }
-        return cuenta[3];
+        return cuenta[PERFIL];
     }
 
     /** Asocia el perfil (por ejemplo P0001) a la cuenta del usuario. */
@@ -120,9 +134,9 @@ public class ServicioCuenta {
         List<String[]> cuentas = leer();
         String[] cuenta = buscar(cuentas, usuario == null ? "" : usuario.trim());
         if (cuenta == null) {
-            throw new IllegalArgumentException("El usuario no existe.");
+            throw new DatosInvalidosException("El usuario no existe.");
         }
-        cuenta[3] = idPerfil;
+        cuenta[PERFIL] = idPerfil;
         escribir(cuentas);
     }
 
@@ -131,8 +145,8 @@ public class ServicioCuenta {
         List<String[]> cuentas = leer();
         boolean cambio = false;
         for (String[] c : cuentas) {
-            if (c[3].equalsIgnoreCase(idPerfil)) {
-                c[3] = SIN_PERFIL;
+            if (c[ROL].equals(rol) && c[PERFIL].equalsIgnoreCase(idPerfil)) {
+                c[PERFIL] = SIN_PERFIL;
                 cambio = true;
             }
         }
@@ -144,7 +158,7 @@ public class ServicioCuenta {
     /** Elimina la cuenta asociada a ese id. */
     public void eliminarPorPerfil(String idPerfil) {
         List<String[]> cuentas = leer();
-        if (cuentas.removeIf(c -> c[3].equalsIgnoreCase(idPerfil))) {
+        if (cuentas.removeIf(c -> c[ROL].equals(rol) && c[PERFIL].equalsIgnoreCase(idPerfil))) {
             escribir(cuentas);
         }
     }
@@ -153,27 +167,29 @@ public class ServicioCuenta {
     // Archivo y SHA-256
     // ---------------------------------------------------------------
 
+    /** Cuenta de este rol con ese usuario (sin importar mayúsculas), o null. */
     private String[] buscar(List<String[]> cuentas, String usuario) {
         for (String[] c : cuentas) {
-            if (c[0].equalsIgnoreCase(usuario)) {
+            if (c[ROL].equals(rol) && c[USUARIO].equalsIgnoreCase(usuario)) {
                 return c;
             }
         }
         return null;
     }
 
+    /** Lee las cuentas de todos los roles (se reescriben completas para no perder las de los demás). */
     private List<String[]> leer() {
         List<String[]> cuentas = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
             String linea;
             while ((linea = br.readLine()) != null) {
                 String[] partes = linea.split(";", -1);
-                if (partes.length == 4) {
+                if (partes.length == 5) {
                     cuentas.add(partes);
                 }
             }
         } catch (IOException e) {
-            throw new IllegalStateException("No se pudo leer " + archivo.getName() + ": " + e.getMessage());
+            throw new IllegalStateException("No se pudo leer " + ARCHIVO + ": " + e.getMessage());
         }
         return cuentas;
     }
@@ -181,10 +197,42 @@ public class ServicioCuenta {
     private void escribir(List<String[]> cuentas) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(archivo))) {
             for (String[] c : cuentas) {
-                pw.println(c[0] + ";" + c[1] + ";" + c[2] + ";" + c[3]);
+                pw.println(c[ROL] + ";" + c[USUARIO] + ";" + c[SAL] + ";" + c[HASH] + ";" + c[PERFIL]);
             }
         } catch (IOException e) {
-            throw new IllegalStateException("No se pudo guardar " + archivo.getName() + ": " + e.getMessage());
+            throw new IllegalStateException("No se pudo guardar " + ARCHIVO + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Al crear cuentas.csv por primera vez, importa las cuentas de los archivos que se usaban antes
+     * (dadm.csv, dprop.csv y dcli.csv, con el formato usuario;sal;hash;idPerfil). Esos archivos ya no se usan
+     * y se pueden borrar.
+     */
+    private void importarArchivosAnteriores() {
+        String[][] anteriores = {
+            {"dadm.csv", ROL_ADMINISTRADOR}, {"dprop.csv", ROL_PROPIETARIO}, {"dcli.csv", ROL_CLIENTE}
+        };
+        List<String[]> cuentas = new ArrayList<>();
+        for (String[] anterior : anteriores) {
+            File f = new File(anterior[0]);
+            if (!f.exists()) {
+                continue;
+            }
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String linea;
+                while ((linea = br.readLine()) != null) {
+                    String[] p = linea.split(";", -1);
+                    if (p.length == 4) {
+                        cuentas.add(new String[]{anterior[1], p[0], p[1], p[2], p[3]});
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("No se pudo importar " + anterior[0] + ": " + e.getMessage());
+            }
+        }
+        if (!cuentas.isEmpty()) {
+            escribir(cuentas);
         }
     }
 

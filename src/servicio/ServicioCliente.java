@@ -1,11 +1,12 @@
 package servicio;
 
 import modelo.Cliente;
+import modelo.Persona;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ServicioCliente {
+public class ServicioCliente implements ServicioCrud<Cliente> {
     private final String ARCHIVO = "clientes.csv";
     private List<Cliente> listaClientes;
 
@@ -14,6 +15,7 @@ public class ServicioCliente {
         cargarDesdeArchivo();
     }
 
+    @Override
     public void guardar(Cliente cliente) {
         if (cliente.getId() == null || cliente.getId().isEmpty()) {
             cliente.setId(generarIdAutoIncremental());
@@ -22,10 +24,12 @@ public class ServicioCliente {
         sincronizarArchivo();
     }
 
+    @Override
     public List<Cliente> listar() {
         return listaClientes;
     }
 
+    @Override
     public Cliente buscar(String id) {
         for (Cliente c : listaClientes) {
             if (c.getId().equalsIgnoreCase(id)) {
@@ -35,6 +39,7 @@ public class ServicioCliente {
         return null;
     }
 
+    @Override
     public boolean modificar(Cliente clienteModificado) {
         for (int i = 0; i < listaClientes.size(); i++) {
             if (listaClientes.get(i).getId().equalsIgnoreCase(clienteModificado.getId())) {
@@ -47,6 +52,7 @@ public class ServicioCliente {
     }
 
     /** Elimina el cliente. @return true si existía */
+    @Override
     public boolean eliminar(String id) {
         cargarDesdeArchivo();
         boolean eliminado = listaClientes.removeIf(c -> c.getId().equalsIgnoreCase(id));
@@ -94,15 +100,8 @@ public class ServicioCliente {
 
     private void sincronizarArchivo() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO))) {
-            for (Cliente c : listaClientes) {
-                pw.println(c.getId() + ";" + 
-                           c.getDni() + ";" + 
-                           c.getNombres() + ";" + 
-                           c.getApellidos() + ";" + 
-                           c.getEmail() + ";" + 
-                           c.getCelular() + ";" + 
-                           c.getSexo() + ";" + 
-                           c.getReferencia());
+            for (Persona persona : listaClientes) {
+                pw.println(persona.toCSV()); // cada clase hija decide qué campos escribe
             }
         } catch (IOException e) {
             System.err.println("Error al escribir clientes.csv: " + e.getMessage());

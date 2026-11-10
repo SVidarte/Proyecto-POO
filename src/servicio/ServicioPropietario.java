@@ -1,11 +1,13 @@
 package servicio;
 
+import modelo.DatosInvalidosException;
+import modelo.Persona;
 import modelo.Propietario;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ServicioPropietario {
+public class ServicioPropietario implements ServicioCrud<Propietario> {
     private final String ARCHIVO = "propietarios.csv";
     private List<Propietario> listaPropietarios;
 
@@ -17,6 +19,7 @@ public class ServicioPropietario {
         cargarDesdeArchivo();
     }
 
+    @Override
     public void guardar(Propietario propietario) {
         propietario.setMetodoPagoPreferido(validarMetodoPago(propietario.getMetodoPagoPreferido()));
         if (propietario.getId() == null || propietario.getId().isEmpty()) {
@@ -26,10 +29,12 @@ public class ServicioPropietario {
         sincronizarArchivo();
     }
 
+    @Override
     public List<Propietario> listar() {
         return listaPropietarios;
     }
 
+    @Override
     public Propietario buscar(String id) {
         for (Propietario p : listaPropietarios) {
             if (p.getId().equalsIgnoreCase(id)) {
@@ -39,6 +44,7 @@ public class ServicioPropietario {
         return null;
     }
 
+    @Override
     public boolean modificar(Propietario propietarioModificado) {
         propietarioModificado.setMetodoPagoPreferido(validarMetodoPago(propietarioModificado.getMetodoPagoPreferido()));
         for (int i = 0; i < listaPropietarios.size(); i++) {
@@ -60,10 +66,11 @@ public class ServicioPropietario {
                 }
             }
         }
-        throw new IllegalArgumentException("El método de pago debe ser Transferencia o Efectivo.");
+        throw new DatosInvalidosException("El método de pago debe ser Transferencia o Efectivo.");
     }
 
     /** Elimina el propietario. @return true si existía */
+    @Override
     public boolean eliminar(String id) {
         cargarDesdeArchivo();
         boolean eliminado = listaPropietarios.removeIf(p -> p.getId().equalsIgnoreCase(id));
@@ -113,17 +120,8 @@ public class ServicioPropietario {
 
     private void sincronizarArchivo() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO))) {
-            for (Propietario p : listaPropietarios) {
-                pw.println(p.getId() + ";" + 
-                           p.getDni() + ";" + 
-                           p.getNombres() + ";" + 
-                           p.getApellidos() + ";" + 
-                           p.getEmail() + ";" + 
-                           p.getCelular() + ";" + 
-                           p.getSexo() + ";" + 
-                           p.getMetodoPagoPreferido() + ";" + 
-                           p.getNumeroCuenta() + ";" + 
-                           p.getBanco());
+            for (Persona persona : listaPropietarios) {
+                pw.println(persona.toCSV()); // cada clase hija decide qué campos escribe
             }
         } catch (IOException e) {
             System.err.println("Error al escribir propietarios.csv: " + e.getMessage());

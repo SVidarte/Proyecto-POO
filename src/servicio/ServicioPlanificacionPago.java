@@ -1,5 +1,6 @@
 package servicio;
 
+import modelo.DatosInvalidosException;
 import modelo.Alquiler;
 import modelo.PlanificacionPago;
 import java.io.*;
@@ -46,20 +47,20 @@ public class ServicioPlanificacionPago {
      */
     public List<PlanificacionPago> generarCuotas(String idAlquiler) throws IOException {
         if (idAlquiler == null || idAlquiler.trim().isEmpty()) {
-            throw new IllegalArgumentException("Ingrese el id del alquiler.");
+            throw new DatosInvalidosException("Ingrese el id del alquiler.");
         }
         cargarDesdeArchivo();
 
         Alquiler alquiler = new ServicioAlquiler().buscar(idAlquiler.trim());
         if (alquiler == null) {
-            throw new IllegalArgumentException("El alquiler " + idAlquiler.trim() + " no existe.");
+            throw new DatosInvalidosException("El alquiler " + idAlquiler.trim() + " no existe.");
         }
         // Se revisan las cuotas pendientes y también las ya pagadas
         List<PlanificacionPago> existentes = new ArrayList<>(listaPlanificaciones);
         existentes.addAll(leerCuotas(ARCHIVO_REALIZADOS));
         for (PlanificacionPago p : existentes) {
             if (p.getIdAlquiler().equalsIgnoreCase(alquiler.getId())) {
-                throw new IllegalArgumentException(
+                throw new DatosInvalidosException(
                         "El alquiler " + alquiler.getId() + " ya tiene cuotas generadas.");
             }
         }

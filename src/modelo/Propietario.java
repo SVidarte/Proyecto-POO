@@ -25,4 +25,10 @@ public class Propietario extends Persona {
 
     public String getBanco() { return banco; }
     public void setBanco(String banco) { this.banco = banco; }
+
+    @Override
+    public String toCSV() {
+        return id + ";" + dni + ";" + nombres + ";" + apellidos + ";" + email + ";" + celular + ";" + sexo + ";"
+                + metodoPagoPreferido + ";" + numeroCuenta + ";" + banco;
+    }
 }

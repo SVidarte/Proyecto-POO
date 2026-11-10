@@ -42,4 +42,10 @@ public abstract class Persona {
 
     public char getSexo() { return sexo; }
     public void setSexo(char sexo) { this.sexo = sexo; }
+
+    /**
+     * Línea que se guarda en el archivo CSV. Cada tipo de persona define qué campos guarda
+     * (polimorfismo: quien la llama solo conoce a Persona).
+     */
+    public abstract String toCSV();
 }

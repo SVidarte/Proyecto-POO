@@ -1,7 +1,9 @@
 package servicio;
 
+import modelo.DatosInvalidosException;
 import modelo.Alquiler;
 import modelo.Departamento;
+import modelo.Mantenible;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +14,7 @@ import java.util.Locale;
  * El id (DP0001, DP0002, ...) lo genera este servicio, y cada departamento se asigna a un
  * propietario existente (ServicioPropietario).
  */
-public class ServicioDepartamento {
+public class ServicioDepartamento implements ServicioCrud<Departamento> {
     private static final String ARCHIVO = "departamentos.csv";
     private static final String CABECERA =
             "id_departamento;id_propietario;piso;numero_departamento;direccion;precio_mensual;estado";
@@ -42,7 +44,7 @@ public class ServicioDepartamento {
         try {
             for (Alquiler a : new ServicioAlquiler().listar()) {
                 if (a.getIdDepartamento().equalsIgnoreCase(id)) {
-                    throw new IllegalArgumentException(
+                    throw new DatosInvalidosException(
                             "El departamento tiene alquileres registrados. Elimine primero esos alquileres.");
                 }
             }
@@ -125,6 +127,52 @@ public class ServicioDepartamento {
         return false;
     }
 
+    // Operaciones del contrato ServicioCrud (usan los métodos propios de este servicio)
+
+    @Override
+    public void guardar(Departamento d) {
+        agregarDepartamento(d);
+    }
+
+    @Override
+    public List<Departamento> listar() {
+        return listarDepartamento();
+    }
+
+    @Override
+    public Departamento buscar(String id) {
+        return buscarPorId(id);
+    }
+
+    @Override
+    public boolean modificar(Departamento d) {
+        return modificarDepartamento(d);
+    }
+
+    @Override
+    public boolean eliminar(String id) {
+        return eliminarDepartamento(id);
+    }
+
+    /**
+     * Alterna el estado del departamento (Disponible a Ocupado y viceversa) usando el contrato
+     * de la interfaz Mantenible.
+     *
+     * @return true si encontró el departamento
+     */
+    public boolean alternarEstado(String id) {
+        List<Departamento> lista = listarDepartamento();
+        for (Departamento d : lista) {
+            if (d.getId_departamento().equalsIgnoreCase(id)) {
+                Mantenible mantenible = d;
+                mantenible.actualizar_estado();
+                sincronizarArchivo(lista);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Departamentos que pertenecen a un propietario. */
     public List<Departamento> listarPorPropietario(String idPropietario) {
         List<Departamento> resultado = new ArrayList<>();
@@ -185,7 +233,7 @@ public class ServicioDepartamento {
     /** El propietario debe existir en propietarios.csv (se vuelve a leer el archivo para tener datos al día). */
     private void validarPropietario(String idPropietario) {
         if (new ServicioPropietario().buscar(idPropietario) == null) {
-            throw new IllegalArgumentException("El propietario " + idPropietario + " no existe.");
+            throw new DatosInvalidosException("El propietario " + idPropietario + " no existe.");
         }
     }
 
@@ -217,6 +265,3 @@ public class ServicioDepartamento {
         }
     }
 }
-
-
-    

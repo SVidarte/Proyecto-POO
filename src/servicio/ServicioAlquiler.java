@@ -1,5 +1,6 @@
 package servicio;
 
+import modelo.DatosInvalidosException;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -9,7 +10,9 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import modelo.Alquiler;
 import modelo.AlquilerDepartamento;
 import modelo.Departamento;
@@ -22,9 +25,14 @@ public class ServicioAlquiler {
 
     private static final String ARCHIVO = "alquiler.csv";
     private static final String CABECERA =
-            "id;idCliente;idPropietario;idDepartamento;fechaInicial;fechaFinal;montoPagar";
+            "id;idCliente;idPropietario;idDepartamento;fechaInicial;fechaFinal;montoPagar;estado";
     private static final String PREFIJO = "A";
-    private static final String ARCHIVO_ELIMINADOS = "alquileres_eliminados.csv";
+    // Un alquiler eliminado no se borra del archivo: queda con estado Eliminado, así su id nunca se reutiliza.
+    private static final String ESTADO_ACTIVO = "Activo";
+    private static final String ESTADO_ELIMINADO = "Eliminado";
+    private static final int COLUMNA_ESTADO = 7;
+    // archivo que se usaba antes para guardar los ids eliminados (ya no se usa)
+    private static final String ARCHIVO_ELIMINADOS_ANTERIOR = "alquileres_eliminados.csv";
 
     private final File archivo;
 
@@ -39,9 +47,10 @@ public class ServicioAlquiler {
                 pw.println(CABECERA);
             }
         }
+        importarEliminadosAnteriores();
     }
 
-    /** Lee el archivo y devuelve todos los alquileres en una lista. */
+    /** Lee el archivo y devuelve los alquileres activos (los eliminados no se incluyen). */
     public List<Alquiler> listar() throws IOException {
         List<Alquiler> lista = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
@@ -49,6 +58,9 @@ public class ServicioAlquiler {
             while ((linea = br.readLine()) != null) {
                 if (linea.trim().isEmpty() || linea.startsWith("id" + Alquiler.SEPARADOR)) {
                     continue; // línea vacía o cabecera
+                }
+                if (esEliminada(linea)) {
+                    continue; // alquiler eliminado: solo se conserva su id
                 }
                 Alquiler alquiler = convertirLinea(linea);
                 if (alquiler != null) {
@@ -68,7 +80,7 @@ public class ServicioAlquiler {
         validar(alquiler);
         alquiler.setId(generarId());
         try (PrintWriter pw = new PrintWriter(new FileWriter(archivo, true))) {
-            pw.println(alquiler.toCSV());
+            pw.println(alquiler.toCSV() + Alquiler.SEPARADOR + ESTADO_ACTIVO);
         }
         return alquiler.getId();
     }
@@ -107,8 +119,8 @@ public class ServicioAlquiler {
 
     /**
      * Elimina el alquiler con ese id. Si el departamento ya no tiene otro alquiler con cliente, vuelve a quedar
-     * Disponible. Su id queda registrado en alquileres_eliminados.csv para
-     * que nunca vuelva a usarse, y sus cuotas pendientes se eliminan de planificaciones_pago.csv
+     * Disponible. Queda en alquiler.csv con estado Eliminado para
+     * que su id nunca vuelva a usarse, y sus cuotas pendientes se eliminan de planificaciones_pago.csv
      * (las cuotas que ya estaban pagadas se conservan en planificacion_pagos_realizados.csv).
      *
      * @return true si lo encontró y lo eliminó
@@ -126,8 +138,9 @@ public class ServicioAlquiler {
             return false;
         }
         lista.remove(objetivo);
-        reescribir(lista);
-        registrarIdEliminado(objetivo.getId());
+        List<String> eliminados = lineasEliminadas();
+        eliminados.add(objetivo.toCSV() + Alquiler.SEPARADOR + ESTADO_ELIMINADO); // queda registrado con estado Eliminado
+        escribirTodo(lista, eliminados);
         liberarDepartamento(objetivo, lista);
         new ServicioPlanificacionPago().eliminarPorAlquiler(objetivo.getId());
         return true;
@@ -186,25 +199,25 @@ public class ServicioAlquiler {
     public int aceptarAlquiler(String idAlquiler, String idCliente) throws IOException {
         Alquiler alquiler = buscar(idAlquiler);
         if (alquiler == null) {
-            throw new IllegalArgumentException("El alquiler " + idAlquiler + " no existe.");
+            throw new DatosInvalidosException("El alquiler " + idAlquiler + " no existe.");
         }
         if (alquiler.getIdCliente() != null && !alquiler.getIdCliente().trim().isEmpty()) {
-            throw new IllegalArgumentException("Este alquiler ya fue aceptado por otro cliente.");
+            throw new DatosInvalidosException("Este alquiler ya fue aceptado por otro cliente.");
         }
         ServicioDepartamento servicioDepartamento = new ServicioDepartamento();
         Departamento departamento = servicioDepartamento.buscarPorId(alquiler.getIdDepartamento());
         if (departamento == null || !Departamento.DISPONIBLE.equals(departamento.getEstado())) {
-            throw new IllegalArgumentException("El departamento de este alquiler ya no está disponible.");
+            throw new DatosInvalidosException("El departamento de este alquiler ya no está disponible.");
         }
         if (new ServicioCliente().buscar(idCliente) == null) {
-            throw new IllegalArgumentException("El cliente " + idCliente + " no existe.");
+            throw new DatosInvalidosException("El cliente " + idCliente + " no existe.");
         }
 
         alquiler.setIdCliente(idCliente);
         modificar(alquiler);
         try {
             int cuotas = new ServicioPlanificacionPago().generarCuotas(alquiler.getId()).size();
-            servicioDepartamento.cambiarEstado(departamento.getId_departamento(), Departamento.OCUPADO);
+            servicioDepartamento.alternarEstado(departamento.getId_departamento()); // Disponible pasa a Ocupado
             return cuotas;
         } catch (RuntimeException e) {
             alquiler.setIdCliente(""); // si fallan las cuotas, el alquiler queda como estaba
@@ -251,17 +264,13 @@ public class ServicioAlquiler {
 
     /**
      * Genera el siguiente id: toma el número más alto que haya existido y le suma 1.
-     * Cuenta los alquileres actuales, los eliminados (alquileres_eliminados.csv) y los alquileres
-     * que todavía aparecen en archivos de cuotas, así un id eliminado no vuelve a usarse.
+     * Cuenta los alquileres activos y los eliminados de alquiler.csv, y los que todavía aparecen en los
+     * archivos de cuotas, así un id eliminado no vuelve a usarse.
      */
     public String generarId() throws IOException {
-        int maximo = 0;
-        for (Alquiler alquiler : listar()) {
-            maximo = Math.max(maximo, numeroDeId(alquiler.getId()));
-        }
-        maximo = Math.max(maximo, mayorNumeroEnArchivo(ARCHIVO_ELIMINADOS, 0));
-        maximo = Math.max(maximo, mayorNumeroEnArchivo(modelo.PlanificacionPago.ARCHIVO, 1));
-        maximo = Math.max(maximo, mayorNumeroEnArchivo(modelo.PlanificacionPago.ARCHIVO_REALIZADOS, 1));
+        int maximo = UtilIds.mayorNumero(archivo.getPath(), 0, PREFIJO);
+        maximo = Math.max(maximo, UtilIds.mayorNumero(modelo.PlanificacionPago.ARCHIVO, 1, PREFIJO));
+        maximo = Math.max(maximo, UtilIds.mayorNumero(modelo.PlanificacionPago.ARCHIVO_REALIZADOS, 1, PREFIJO));
         return String.format("%s%04d", PREFIJO, maximo + 1);
     }
 
@@ -269,25 +278,27 @@ public class ServicioAlquiler {
     // Métodos privados
     // ---------------------------------------------------------------------
 
-    /** true si el id aparece en alquileres_eliminados.csv (el alquiler existió y fue eliminado). */
+    /** true si el id corresponde a un alquiler eliminado (fila con estado Eliminado en alquiler.csv). */
     public static boolean estaEliminado(String id) {
-        File f = new File(ARCHIVO_ELIMINADOS);
+        File f = new File(ARCHIVO);
         if (id == null || !f.exists()) {
             return false;
         }
         try (BufferedReader br = new BufferedReader(new FileReader(f))) {
             String linea;
             while ((linea = br.readLine()) != null) {
-                if (linea.trim().equalsIgnoreCase(id.trim())) {
+                String[] p = linea.split(Alquiler.SEPARADOR, -1);
+                if (p.length > COLUMNA_ESTADO && p[0].trim().equalsIgnoreCase(id.trim()) && esEliminada(linea)) {
                     return true;
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error al leer " + ARCHIVO_ELIMINADOS + ": " + e.getMessage());
+            System.err.println("Error al leer " + ARCHIVO + ": " + e.getMessage());
         }
         return false;
     }
 
+    /** Si el departamento ya no tiene otro alquiler con cliente, vuelve a quedar Disponible. */
     private void liberarDepartamento(Alquiler eliminado, List<Alquiler> restantes) {
         for (Alquiler a : restantes) {
             if (a.getIdDepartamento().equalsIgnoreCase(eliminado.getIdDepartamento())
@@ -295,42 +306,58 @@ public class ServicioAlquiler {
                 return; // el departamento sigue alquilado por otro alquiler con cliente
             }
         }
-        new ServicioDepartamento().cambiarEstado(eliminado.getIdDepartamento(), Departamento.DISPONIBLE);
-    }
-
-    private void registrarIdEliminado(String id) throws IOException {
-        try (PrintWriter pw = new PrintWriter(new FileWriter(ARCHIVO_ELIMINADOS, true))) {
-            pw.println(id);
+        ServicioDepartamento servicioDepartamento = new ServicioDepartamento();
+        Departamento departamento = servicioDepartamento.buscarPorId(eliminado.getIdDepartamento());
+        if (departamento != null && Departamento.OCUPADO.equals(departamento.getEstado())) {
+            servicioDepartamento.alternarEstado(departamento.getId_departamento()); // Ocupado pasa a Disponible
         }
     }
 
-    private int numeroDeId(String id) {
-        try {
-            return Integer.parseInt(id.substring(PREFIJO.length()));
-        } catch (NumberFormatException | IndexOutOfBoundsException | NullPointerException e) {
-            return 0; // id con formato raro: se ignora
-        }
+    private static boolean esEliminada(String linea) {
+        String[] p = linea.split(Alquiler.SEPARADOR, -1);
+        return p.length > COLUMNA_ESTADO && ESTADO_ELIMINADO.equalsIgnoreCase(p[COLUMNA_ESTADO].trim());
     }
 
-    /** Mayor número de id de alquiler que aparece en la columna indicada de un CSV (0 si no existe). */
-    private int mayorNumeroEnArchivo(String ruta, int columna) {
-        int mayor = 0;
-        File f = new File(ruta);
-        if (!f.exists()) {
-            return 0;
-        }
-        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+    /** Líneas de alquileres eliminados tal como están en el archivo. */
+    private List<String> lineasEliminadas() throws IOException {
+        List<String> lineas = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
             String linea;
             while ((linea = br.readLine()) != null) {
-                String[] partes = linea.split(Alquiler.SEPARADOR);
-                if (partes.length > columna) {
-                    mayor = Math.max(mayor, numeroDeId(partes[columna].trim()));
+                if (!linea.trim().isEmpty() && esEliminada(linea)) {
+                    lineas.add(linea);
                 }
             }
-        } catch (IOException e) {
-            System.err.println("Error al leer " + ruta + ": " + e.getMessage());
         }
-        return mayor;
+        return lineas;
+    }
+
+    /**
+     * Antes los ids eliminados se guardaban en alquileres_eliminados.csv. Si ese archivo todavía existe,
+     * sus ids se pasan a alquiler.csv como filas con estado Eliminado (solo la primera vez; luego se puede borrar).
+     */
+    private void importarEliminadosAnteriores() throws IOException {
+        File anterior = new File(ARCHIVO_ELIMINADOS_ANTERIOR);
+        if (!anterior.exists()) {
+            return;
+        }
+        Set<String> conocidos = new HashSet<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(archivo))) {
+            String linea;
+            while ((linea = br.readLine()) != null) {
+                conocidos.add(linea.split(Alquiler.SEPARADOR, -1)[0].trim().toUpperCase());
+            }
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(anterior));
+                PrintWriter pw = new PrintWriter(new FileWriter(archivo, true))) {
+            String id;
+            while ((id = br.readLine()) != null) {
+                id = id.trim();
+                if (!id.isEmpty() && conocidos.add(id.toUpperCase())) {
+                    pw.println(id + ";;;;;;;" + ESTADO_ELIMINADO);
+                }
+            }
+        }
     }
 
     private Alquiler convertirLinea(String linea) {
@@ -349,11 +376,19 @@ public class ServicioAlquiler {
         }
     }
 
+    /** Guarda la lista de alquileres activos conservando las filas de los eliminados. */
     private void reescribir(List<Alquiler> lista) throws IOException {
+        escribirTodo(lista, lineasEliminadas());
+    }
+
+    private void escribirTodo(List<Alquiler> activos, List<String> eliminados) throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(archivo))) {
             pw.println(CABECERA);
-            for (Alquiler alquiler : lista) {
-                pw.println(alquiler.toCSV());
+            for (Alquiler alquiler : activos) {
+                pw.println(alquiler.toCSV() + Alquiler.SEPARADOR + ESTADO_ACTIVO);
+            }
+            for (String linea : eliminados) {
+                pw.println(linea);
             }
         }
     }
@@ -367,22 +402,22 @@ public class ServicioAlquiler {
         validarTexto(alquiler.getIdPropietario(), "El id del propietario");
         validarTexto(alquiler.getIdDepartamento(), "El id del departamento");
         if (alquiler.getFechaInicial() == null || alquiler.getFechaFinal() == null) {
-            throw new IllegalArgumentException("Las fechas son obligatorias.");
+            throw new DatosInvalidosException("Las fechas son obligatorias.");
         }
         if (alquiler.getFechaFinal().isBefore(alquiler.getFechaInicial())) {
-            throw new IllegalArgumentException("La fecha final no puede ser anterior a la fecha inicial.");
+            throw new DatosInvalidosException("La fecha final no puede ser anterior a la fecha inicial.");
         }
         if (alquiler.getMontoPagar() < 0) {
-            throw new IllegalArgumentException("El monto a pagar no puede ser negativo.");
+            throw new DatosInvalidosException("El monto a pagar no puede ser negativo.");
         }
     }
 
     private void validarTexto(String valor, String nombre) {
         if (valor == null || valor.trim().isEmpty()) {
-            throw new IllegalArgumentException(nombre + " es obligatorio.");
+            throw new DatosInvalidosException(nombre + " es obligatorio.");
         }
         if (valor.contains(Alquiler.SEPARADOR)) {
-            throw new IllegalArgumentException(nombre + " no puede contener el carácter \";\".");
+            throw new DatosInvalidosException(nombre + " no puede contener el carácter \";\".");
         }
     }
 }

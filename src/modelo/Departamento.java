@@ -38,7 +38,7 @@ public class Departamento implements Mantenible {
         if (id_departamento != null && !id_departamento.trim().isEmpty())
             this.id_departamento = id_departamento.trim().toUpperCase();
         else
-            throw new IllegalArgumentException("El departamento no puede estar vacio");
+            throw new DatosInvalidosException("El departamento no puede estar vacio");
     }
 
     public String getId_propietario() {
@@ -49,7 +49,7 @@ public class Departamento implements Mantenible {
         if (id_propietario != null && !id_propietario.trim().isEmpty())
             this.id_propietario = id_propietario.trim().toUpperCase();
         else
-            throw new IllegalArgumentException("El departamento debe pertenecer a un propietario");
+            throw new DatosInvalidosException("El departamento debe pertenecer a un propietario");
     }
 
     public int getPiso() {
@@ -60,7 +60,7 @@ public class Departamento implements Mantenible {
         if (piso >= 1 && piso <= 50)
             this.piso = piso;
         else
-            throw new IllegalArgumentException("Piso inexistente");
+            throw new DatosInvalidosException("Piso inexistente");
     }
 
     public String getNumero_departamento() {
@@ -69,9 +69,9 @@ public class Departamento implements Mantenible {
 
     public void setNumero_departamento(String numero_departamento) {
         if (numero_departamento == null || numero_departamento.trim().isEmpty())
-            throw new IllegalArgumentException("El numero de departamento no puede estar vacio");
+            throw new DatosInvalidosException("El numero de departamento no puede estar vacio");
         if (numero_departamento.contains(";"))
-            throw new IllegalArgumentException("El numero de departamento no puede contener el caracter \";\"");
+            throw new DatosInvalidosException("El numero de departamento no puede contener el caracter \";\"");
         this.numero_departamento = numero_departamento.trim().toUpperCase();
     }
 
@@ -81,9 +81,9 @@ public class Departamento implements Mantenible {
 
     public void setDireccion(String direccion) {
         if (direccion == null || direccion.trim().isEmpty())
-            throw new IllegalArgumentException("La direccion no puede estar vacia");
+            throw new DatosInvalidosException("La direccion no puede estar vacia");
         if (direccion.contains(";"))
-            throw new IllegalArgumentException("La direccion no puede contener el caracter \";\"");
+            throw new DatosInvalidosException("La direccion no puede contener el caracter \";\"");
         this.direccion = direccion.trim();
     }
 
@@ -93,7 +93,7 @@ public class Departamento implements Mantenible {
 
     public void setPrecio_mensual(double precio_mensual) {
         if (precio_mensual < 0) {
-            throw new IllegalArgumentException("El precio no puede ser negativo");
+            throw new DatosInvalidosException("El precio no puede ser negativo");
         } else
             this.precio_mensual = precio_mensual;
     }
@@ -109,7 +109,7 @@ public class Departamento implements Mantenible {
         } else if (estado != null && estado.trim().equalsIgnoreCase(OCUPADO)) {
             this.estado = OCUPADO;
         } else
-            throw new IllegalArgumentException("Estado invalido");
+            throw new DatosInvalidosException("Estado invalido");
     }
 
     @Override

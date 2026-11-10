@@ -6,6 +6,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import java.awt.Component;
+import java.util.Arrays;
 
 /** Cuadros de diálogo para registrarse e iniciar sesión (los usa el menú principal con los tres tipos de usuario). */
 public final class DialogosAcceso {
@@ -32,13 +33,17 @@ public final class DialogosAcceso {
             if (opcion != JOptionPane.OK_OPTION) {
                 return null;
             }
+            char[] clave = txtClave.getPassword();
+            char[] confirmacion = txtConfirmar.getPassword();
             try {
-                cuentas.registrar(txtUsuario.getText(),
-                        new String(txtClave.getPassword()), new String(txtConfirmar.getPassword()));
+                cuentas.registrar(txtUsuario.getText(), new String(clave), new String(confirmacion));
                 JOptionPane.showMessageDialog(padre, "Cuenta creada correctamente.");
                 return txtUsuario.getText().trim();
             } catch (IllegalArgumentException | IllegalStateException ex) {
                 JOptionPane.showMessageDialog(padre, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(clave, '\0'); // la contraseña no se deja en memoria
+                Arrays.fill(confirmacion, '\0');
             }
         }
     }
@@ -60,7 +65,14 @@ public final class DialogosAcceso {
             if (opcion != JOptionPane.OK_OPTION) {
                 return null;
             }
-            if (cuentas.validar(txtUsuario.getText(), new String(txtClave.getPassword()))) {
+            char[] clave = txtClave.getPassword();
+            boolean correcta;
+            try {
+                correcta = cuentas.validar(txtUsuario.getText(), new String(clave));
+            } finally {
+                Arrays.fill(clave, '\0'); // la contraseña no se deja en memoria
+            }
+            if (correcta) {
                 return txtUsuario.getText().trim();
             }
             if (intento < MAX_INTENTOS) {

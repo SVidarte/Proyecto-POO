@@ -1,5 +1,6 @@
 package servicio;
 
+import modelo.DatosInvalidosException;
 import modelo.Alquiler;
 import modelo.Pago;
 import modelo.PlanificacionPago;
@@ -106,7 +107,7 @@ public class ServicioPago {
         }
         String cuota = pago.getIdPlanificacionPago() == null ? "" : pago.getIdPlanificacionPago().trim().toUpperCase();
         if (!cuotasDelCliente(idCliente).contains(cuota)) {
-            throw new IllegalArgumentException("Esa planificación de pago no pertenece a sus alquileres.");
+            throw new DatosInvalidosException("Esa planificación de pago no pertenece a sus alquileres.");
         }
     }
 
@@ -235,23 +236,23 @@ public class ServicioPago {
 
     private void validarCampos(Pago pago) {
         if (pago.getIdPlanificacionPago() == null || pago.getIdPlanificacionPago().trim().isEmpty()) {
-            throw new IllegalArgumentException("El id de la planificación de pago es obligatorio.");
+            throw new DatosInvalidosException("El id de la planificación de pago es obligatorio.");
         }
         if (pago.getMonto() <= 0) {
-            throw new IllegalArgumentException("El monto debe ser mayor a 0.");
+            throw new DatosInvalidosException("El monto debe ser mayor a 0.");
         }
         if (pago.getFecha() == null) {
-            throw new IllegalArgumentException("La fecha es obligatoria.");
+            throw new DatosInvalidosException("La fecha es obligatoria.");
         }
         if (!Pago.TRANSFERENCIA.equals(pago.getMetodo()) && !Pago.EFECTIVO.equals(pago.getMetodo())) {
-            throw new IllegalArgumentException("El método de pago debe ser Transferencia o Efectivo.");
+            throw new DatosInvalidosException("El método de pago debe ser Transferencia o Efectivo.");
         }
     }
 
     private PlanificacionPago obtenerPlanificacion(String idPlanificacion) {
         PlanificacionPago plan = servicioPlanificacion.buscar(idPlanificacion.trim());
         if (plan == null) {
-            throw new IllegalArgumentException(
+            throw new DatosInvalidosException(
                     "La planificación de pago \"" + idPlanificacion + "\" no existe o ya fue pagada por completo.");
         }
         return plan;
@@ -353,4 +354,4 @@ public class ServicioPago {
             System.err.println("Error al escribir " + ARCHIVO + ": " + e.getMessage());
         }
     }
-}   
+}

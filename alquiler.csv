@@ -1,4 +1,7 @@
 id;idCliente;idPropietario;idDepartamento;fechaInicial;fechaFinal;montoPagar
-A0002;C0001;P0001;DP0001;08/11/2026;08/12/2027;2500.0
-A0003;C0001;P0003;DP0001;08/11/2026;08/04/2027;5000.0
-A0004;C0002;P0003;DP0001;08/11/2026;08/11/2027;1000.0
+A0006;C0004;P0001;DP0001;09/11/2026;09/03/2027;1250.0
+A0001;;;;;;;Eliminado
+A0005;;;;;;;Eliminado
+A0002;;;;;;;Eliminado
+A0003;;;;;;;Eliminado
+A0004;;;;;;;Eliminado
