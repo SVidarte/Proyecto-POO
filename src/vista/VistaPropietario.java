@@ -58,6 +58,7 @@ public class VistaPropietario extends JFrame {
         add(lblDni);
 
         txtDni = new JTextField();
+        FiltroNumerico.aplicar(txtDni, 8);
         txtDni.setBounds(150, 55, 150, 25);
         add(txtDni);
 
@@ -90,6 +91,7 @@ public class VistaPropietario extends JFrame {
         add(lblCelular);
 
         txtCelular = new JTextField();
+        FiltroNumerico.aplicarCelular(txtCelular, 9);
         txtCelular.setBounds(540, 55, 200, 25);
         add(txtCelular);
 

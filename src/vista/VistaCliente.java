@@ -56,6 +56,7 @@ public class VistaCliente extends JFrame {
         add(lblDni);
 
         txtDni = new JTextField();
+        FiltroNumerico.aplicar(txtDni, 8);
         txtDni.setBounds(100, 55, 150, 25);
         add(txtDni);
 
@@ -88,6 +89,7 @@ public class VistaCliente extends JFrame {
         add(lblCelular);
 
         txtCelular = new JTextField();
+        FiltroNumerico.aplicarCelular(txtCelular, 9);
         txtCelular.setBounds(480, 55, 200, 25);
         add(txtCelular);
 

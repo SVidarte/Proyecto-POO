@@ -17,6 +17,7 @@ public class ServicioCliente implements ServicioCrud<Cliente> {
 
     @Override
     public void guardar(Cliente cliente) {
+        ValidadorPersona.validar(cliente);
         if (cliente.getId() == null || cliente.getId().isEmpty()) {
             cliente.setId(generarIdAutoIncremental());
         }
@@ -41,6 +42,7 @@ public class ServicioCliente implements ServicioCrud<Cliente> {
 
     @Override
     public boolean modificar(Cliente clienteModificado) {
+        ValidadorPersona.validar(clienteModificado);
         for (int i = 0; i < listaClientes.size(); i++) {
             if (listaClientes.get(i).getId().equalsIgnoreCase(clienteModificado.getId())) {
                 listaClientes.set(i, clienteModificado);

@@ -2,6 +2,7 @@ package vista;
 
 import modelo.Propietario;
 import servicio.ServicioPropietario;
+import servicio.ValidadorPersona;
 
 import javax.swing.*;
 import java.awt.*;
@@ -34,6 +35,10 @@ public class DialogoPerfilPropietario extends JDialog {
         super(padre, existente == null ? "Registre sus datos de propietario" : "Mis datos", true);
         this.existente = existente;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+
+        // DNI: solo 8 números. Celular: solo 9 números.
+        FiltroNumerico.aplicar(txtDni, ValidadorPersona.LONGITUD_DNI);
+        FiltroNumerico.aplicarCelular(txtCelular, ValidadorPersona.LONGITUD_CELULAR);
 
         JTextField txtId = new JTextField(existente == null ? "(automático)" : existente.getId());
         txtId.setEditable(false);
@@ -126,6 +131,14 @@ public class DialogoPerfilPropietario extends JDialog {
                 error("Los datos no pueden contener el carácter \";\".");
                 return;
             }
+        }
+        if (txtDni.getText().trim().length() != ValidadorPersona.LONGITUD_DNI) {
+            error("El DNI debe tener exactamente " + ValidadorPersona.LONGITUD_DNI + " dígitos.");
+            return;
+        }
+        if (txtCelular.getText().trim().length() != ValidadorPersona.LONGITUD_CELULAR) {
+            error("El celular debe tener exactamente " + ValidadorPersona.LONGITUD_CELULAR + " dígitos.");
+            return;
         }
         try {
             char sexo = "Masculino".equals(cmbSexo.getSelectedItem()) ? 'M' : 'F';

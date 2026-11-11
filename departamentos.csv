@@ -1,3 +1,5 @@
 id_departamento;id_propietario;piso;numero_departamento;direccion;precio_mensual;estado
 DP0001;P0001;3;300;Urb Santa Maria del Pinar;1350.00;Ocupado
 DP0002;P0001;4;400;Urb Santa Maria del Pinar;1150.00;Disponible
+DP0003;P0002;2;201;Avenida Sánchez Cerro Nro. 535;1200.00;Disponible
+DP0004;P0002;2;202;Los Ceibos Pasaje 103, Urb. Santa Isabel, Piura;1500.00;Ocupado

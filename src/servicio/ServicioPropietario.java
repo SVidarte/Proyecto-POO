@@ -21,6 +21,7 @@ public class ServicioPropietario implements ServicioCrud<Propietario> {
 
     @Override
     public void guardar(Propietario propietario) {
+        ValidadorPersona.validar(propietario);
         propietario.setMetodoPagoPreferido(validarMetodoPago(propietario.getMetodoPagoPreferido()));
         if (propietario.getId() == null || propietario.getId().isEmpty()) {
             propietario.setId(generarIdAutoIncremental());
@@ -46,6 +47,7 @@ public class ServicioPropietario implements ServicioCrud<Propietario> {
 
     @Override
     public boolean modificar(Propietario propietarioModificado) {
+        ValidadorPersona.validar(propietarioModificado);
         propietarioModificado.setMetodoPagoPreferido(validarMetodoPago(propietarioModificado.getMetodoPagoPreferido()));
         for (int i = 0; i < listaPropietarios.size(); i++) {
             if (listaPropietarios.get(i).getId().equalsIgnoreCase(propietarioModificado.getId())) {
