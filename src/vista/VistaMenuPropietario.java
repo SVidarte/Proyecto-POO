@@ -7,6 +7,7 @@ import modelo.Propietario;
 import servicio.ServicioAdministracion;
 import servicio.ServicioAlquiler;
 import servicio.ServicioCliente;
+import servicio.ServicioCuenta;
 import servicio.ServicioDepartamento;
 import servicio.ServicioPropietario;
 
@@ -28,6 +29,8 @@ import java.util.Set;
 public class VistaMenuPropietario extends JFrame {
 
     private final String idPropietario;
+    private final String usuario;
+    private final JLabel lblBienvenida = new JLabel();
     private List<Departamento> departamentos = new ArrayList<>();
     private List<Cliente> clientes = new ArrayList<>();
     private boolean cargando = false;
@@ -42,8 +45,9 @@ public class VistaMenuPropietario extends JFrame {
     private final JPanel panelClientes = new JPanel(new BorderLayout(5, 5));
     private final JButton btnEliminarCliente = new JButton("Eliminar cliente");
 
-    public VistaMenuPropietario(String idPropietario) {
+    public VistaMenuPropietario(String idPropietario, String usuario) {
         this.idPropietario = idPropietario;
+        this.usuario = usuario;
 
         setTitle("Propietario");
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -91,21 +95,73 @@ public class VistaMenuPropietario extends JFrame {
     }
 
     private JPanel crearPanelSuperior() {
-        Propietario p = new ServicioPropietario().buscar(idPropietario);
-        String nombre = (p != null) ? p.getNombres() + " " + p.getApellidos() : idPropietario;
-        JLabel lblBienvenida = new JLabel("Propietario: " + nombre + " (" + idPropietario + ")");
+        actualizarBienvenida();
         lblBienvenida.setFont(new Font("Arial", Font.BOLD, 14));
 
-        JButton btnCrearDepartamento = new JButton("Crear departamento");
+        JButton btnCrearDepartamento = new JButton("Crear/Modificar departamento");
         JButton btnCrearAlquiler = new JButton("Crear alquiler");
+        JButton btnCuotas = new JButton("Cuotas de mis alquileres");
+        JButton btnMisDatos = new JButton("Mis datos");
+        JButton btnContrasena = new JButton("Cambiar contraseña");
+        JButton btnEliminarCuenta = new JButton("Eliminar mi cuenta");
+
         btnCrearDepartamento.addActionListener(e -> new VistaDepartamento(idPropietario).setVisible(true));
         btnCrearAlquiler.addActionListener(e -> new VistaAlquiler(idPropietario).setVisible(true));
+        btnCuotas.addActionListener(e -> new VistaCuotasPropietario(idPropietario).setVisible(true));
+        btnMisDatos.addActionListener(e -> misDatos());
+        btnContrasena.addActionListener(e ->
+                DialogosAcceso.cambiarContrasena(this, ServicioCuenta.propietarios(), usuario));
+        btnEliminarCuenta.addActionListener(e -> eliminarMiCuenta());
 
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        panel.add(lblBienvenida);
-        panel.add(btnCrearDepartamento);
-        panel.add(btnCrearAlquiler);
+        JPanel botones = new JPanel(new GridLayout(2, 3, 8, 8));
+        botones.add(btnCrearDepartamento);
+        botones.add(btnCrearAlquiler);
+        botones.add(btnCuotas);
+        botones.add(btnMisDatos);
+        botones.add(btnContrasena);
+        botones.add(btnEliminarCuenta);
+
+        JPanel panel = new JPanel(new BorderLayout(5, 8));
+        panel.add(lblBienvenida, BorderLayout.NORTH);
+        panel.add(botones, BorderLayout.CENTER);
         return panel;
+    }
+
+    private void actualizarBienvenida() {
+        Propietario p = new ServicioPropietario().buscar(idPropietario);
+        String nombre = (p != null) ? p.getNombres() + " " + p.getApellidos() : idPropietario;
+        lblBienvenida.setText("Propietario: " + nombre + " (" + idPropietario + ")");
+    }
+
+    // ---------------------------------------------------------------
+    // Mi cuenta
+    // ---------------------------------------------------------------
+
+    private void misDatos() {
+        Propietario p = new ServicioPropietario().buscar(idPropietario);
+        if (p == null) {
+            error("No se encontraron sus datos.");
+            return;
+        }
+        new DialogoPerfilPropietario(this, p).setVisible(true);
+        actualizarBienvenida();
+    }
+
+    private void eliminarMiCuenta() {
+        ServicioCuenta cuentas = ServicioCuenta.propietarios();
+        if (!DialogosAcceso.confirmarContrasena(this, cuentas, usuario,
+                "Se eliminarán su cuenta, sus datos, sus departamentos y sus alquileres. ¿Continuar?")) {
+            return;
+        }
+        try {
+            ServicioAdministracion.Resumen r = new ServicioAdministracion().eliminarPropietario(idPropietario);
+            cuentas.eliminarCuenta(usuario);
+            JOptionPane.showMessageDialog(this, "Su cuenta fue eliminada.\nDepartamentos eliminados: "
+                    + r.departamentosEliminados + "\nAlquileres eliminados: " + r.alquileresEliminados);
+            dispose();
+        } catch (IOException | RuntimeException ex) {
+            error("Error al eliminar la cuenta: " + ex.getMessage());
+        }
     }
 
     // ---------------------------------------------------------------
@@ -213,3 +269,4 @@ public class VistaMenuPropietario extends JFrame {
         JOptionPane.showMessageDialog(this, mensaje, "Error", JOptionPane.ERROR_MESSAGE);
     }
 }
+

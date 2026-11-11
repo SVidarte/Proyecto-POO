@@ -14,6 +14,7 @@ import java.awt.*;
 public class DialogoPerfilPropietario extends JDialog {
 
     private String idCreado = null;
+    private final Propietario existente; // null = primer registro; con datos = "Mis datos" (modificar)
 
     private final JTextField txtDni = new JTextField();
     private final JTextField txtNombres = new JTextField();
@@ -26,10 +27,15 @@ public class DialogoPerfilPropietario extends JDialog {
     private final JTextField txtNumeroCuenta = new JTextField();
 
     public DialogoPerfilPropietario(Frame padre) {
-        super(padre, "Registre sus datos de propietario", true);
+        this(padre, null);
+    }
+
+    public DialogoPerfilPropietario(Frame padre, Propietario existente) {
+        super(padre, existente == null ? "Registre sus datos de propietario" : "Mis datos", true);
+        this.existente = existente;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        JTextField txtId = new JTextField("(automático)");
+        JTextField txtId = new JTextField(existente == null ? "(automático)" : existente.getId());
         txtId.setEditable(false);
 
         JPanel formulario = new JPanel(new GridLayout(0, 2, 8, 8));
@@ -47,6 +53,9 @@ public class DialogoPerfilPropietario extends JDialog {
 
         cmbMetodoPago.addActionListener(e -> actualizarCamposBanco());
         actualizarCamposBanco();
+        if (existente != null) {
+            cargarDatos(existente);
+        }
 
         JButton btnGuardar = new JButton("Guardar");
         JButton btnCancelar = new JButton("Cancelar");
@@ -61,6 +70,21 @@ public class DialogoPerfilPropietario extends JDialog {
         pack();
         setSize(Math.max(getWidth(), 420), getHeight());
         setLocationRelativeTo(padre);
+    }
+
+    /** Muestra los datos actuales para poder modificarlos. */
+    private void cargarDatos(Propietario p) {
+        txtDni.setText(p.getDni());
+        txtNombres.setText(p.getNombres());
+        txtApellidos.setText(p.getApellidos());
+        txtEmail.setText(p.getEmail());
+        txtCelular.setText(p.getCelular());
+        cmbSexo.setSelectedItem(p.getSexo() == 'M' ? "Masculino" : "Femenino");
+        cmbMetodoPago.setSelectedItem(p.getMetodoPagoPreferido()); // activa o bloquea banco y cuenta
+        if ("Transferencia".equals(cmbMetodoPago.getSelectedItem())) {
+            txtBanco.setText(p.getBanco());
+            txtNumeroCuenta.setText(p.getNumeroCuenta());
+        }
     }
 
     private void agregar(JPanel panel, String etiqueta, JComponent campo) {
@@ -105,14 +129,19 @@ public class DialogoPerfilPropietario extends JDialog {
         }
         try {
             char sexo = "Masculino".equals(cmbSexo.getSelectedItem()) ? 'M' : 'F';
-            Propietario propietario = new Propietario(null, txtDni.getText().trim(), txtNombres.getText().trim(),
+            Propietario propietario = new Propietario(existente == null ? null : existente.getId(), txtDni.getText().trim(), txtNombres.getText().trim(),
                     txtApellidos.getText().trim(), txtEmail.getText().trim(), txtCelular.getText().trim(), sexo,
                     metodo,
                     transferencia ? txtBanco.getText().trim() : "-",
                     transferencia ? txtNumeroCuenta.getText().trim() : "-");
-            new ServicioPropietario().guardar(propietario);
+            if (existente == null) {
+                new ServicioPropietario().guardar(propietario);
+                JOptionPane.showMessageDialog(this, "Datos guardados. Su id es " + propietario.getId() + ".");
+            } else {
+                new ServicioPropietario().modificar(propietario);
+                JOptionPane.showMessageDialog(this, "Sus datos se actualizaron.");
+            }
             idCreado = propietario.getId();
-            JOptionPane.showMessageDialog(this, "Datos guardados. Su id es " + idCreado + ".");
             dispose();
         } catch (RuntimeException ex) {
             error("No se pudo guardar: " + ex.getMessage());

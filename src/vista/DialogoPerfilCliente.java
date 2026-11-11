@@ -13,6 +13,7 @@ import java.awt.*;
 public class DialogoPerfilCliente extends JDialog {
 
     private String idCreado = null;
+    private final Cliente existente; // null = primer registro; con datos = "Mis datos" (modificar)
 
     private final JTextField txtDni = new JTextField();
     private final JTextField txtNombres = new JTextField();
@@ -23,10 +24,15 @@ public class DialogoPerfilCliente extends JDialog {
     private final JComboBox<String> cmbReferencia = new JComboBox<>(new String[]{"Redes sociales", "Amigos/Familiares"});
 
     public DialogoPerfilCliente(Frame padre) {
-        super(padre, "Registre sus datos de cliente", true);
+        this(padre, null);
+    }
+
+    public DialogoPerfilCliente(Frame padre, Cliente existente) {
+        super(padre, existente == null ? "Registre sus datos de cliente" : "Mis datos", true);
+        this.existente = existente;
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        JTextField txtId = new JTextField("(automático)");
+        JTextField txtId = new JTextField(existente == null ? "(automático)" : existente.getId());
         txtId.setEditable(false);
 
         JPanel formulario = new JPanel(new GridLayout(0, 2, 8, 8));
@@ -39,6 +45,16 @@ public class DialogoPerfilCliente extends JDialog {
         agregar(formulario, "Celular:", txtCelular);
         agregar(formulario, "Sexo:", cmbSexo);
         agregar(formulario, "Referencia:", cmbReferencia);
+
+        if (existente != null) {
+            txtDni.setText(existente.getDni());
+            txtNombres.setText(existente.getNombres());
+            txtApellidos.setText(existente.getApellidos());
+            txtEmail.setText(existente.getEmail());
+            txtCelular.setText(existente.getCelular());
+            cmbSexo.setSelectedItem(existente.getSexo() == 'M' ? "Masculino" : "Femenino");
+            cmbReferencia.setSelectedItem(existente.getReferencia());
+        }
 
         JButton btnGuardar = new JButton("Guardar");
         JButton btnCancelar = new JButton("Cancelar");
@@ -75,12 +91,17 @@ public class DialogoPerfilCliente extends JDialog {
         }
         try {
             char sexo = "Masculino".equals(cmbSexo.getSelectedItem()) ? 'M' : 'F';
-            Cliente cliente = new Cliente(null, txtDni.getText().trim(), txtNombres.getText().trim(),
+            Cliente cliente = new Cliente(existente == null ? null : existente.getId(), txtDni.getText().trim(), txtNombres.getText().trim(),
                     txtApellidos.getText().trim(), txtEmail.getText().trim(), txtCelular.getText().trim(), sexo,
                     cmbReferencia.getSelectedItem().toString());
-            new ServicioCliente().guardar(cliente);
+            if (existente == null) {
+                new ServicioCliente().guardar(cliente);
+                JOptionPane.showMessageDialog(this, "Datos guardados. Su id es " + cliente.getId() + ".");
+            } else {
+                new ServicioCliente().modificar(cliente);
+                JOptionPane.showMessageDialog(this, "Sus datos se actualizaron.");
+            }
             idCreado = cliente.getId();
-            JOptionPane.showMessageDialog(this, "Datos guardados. Su id es " + idCreado + ".");
             dispose();
         } catch (RuntimeException ex) {
             error("No se pudo guardar: " + ex.getMessage());

@@ -63,6 +63,13 @@ public class ServicioAdministracion {
         return resumen;
     }
 
+    /** Un cliente elimina su cuenta: se borran sus datos, sus alquileres y su usuario. */
+    public Resumen eliminarClienteYCuenta(String idCliente, String usuario) throws IOException {
+        Resumen resumen = eliminarCliente(idCliente);
+        ServicioCuenta.clientes().eliminarCuenta(usuario);
+        return resumen;
+    }
+
     private void eliminarAlquileres(List<Alquiler> alquileres, Resumen resumen) throws IOException {
         for (Alquiler a : alquileres) {
             if (servicioAlquiler.estaProtegido(a)) {

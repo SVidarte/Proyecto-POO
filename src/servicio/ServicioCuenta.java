@@ -116,6 +116,40 @@ public class ServicioCuenta {
                 cuenta[HASH].getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Cambia la contraseña de una cuenta (guarda un hash nuevo con una sal nueva).
+     *
+     * @throws DatosInvalidosException si la contraseña actual es incorrecta o la nueva no es válida
+     */
+    public void cambiarContrasena(String usuario, String actual, String nueva, String confirmacion) {
+        if (!validar(usuario, actual)) {
+            throw new DatosInvalidosException("La contraseña actual es incorrecta.");
+        }
+        if (nueva == null || nueva.length() < LONGITUD_MINIMA_CONTRASENA) {
+            throw new DatosInvalidosException(
+                    "La contraseña nueva debe tener al menos " + LONGITUD_MINIMA_CONTRASENA + " caracteres.");
+        }
+        if (!nueva.equals(confirmacion)) {
+            throw new DatosInvalidosException("Las contraseñas nuevas no coinciden.");
+        }
+        List<String[]> cuentas = leer();
+        String[] cuenta = buscar(cuentas, usuario.trim());
+        cuenta[SAL] = nuevaSal();
+        cuenta[HASH] = hash(cuenta[SAL], nueva);
+        escribir(cuentas);
+    }
+
+    /** Elimina la cuenta del usuario. @return true si existía */
+    public boolean eliminarCuenta(String usuario) {
+        List<String[]> cuentas = leer();
+        String u = usuario == null ? "" : usuario.trim();
+        boolean eliminada = cuentas.removeIf(c -> c[ROL].equals(rol) && c[USUARIO].equalsIgnoreCase(u));
+        if (eliminada) {
+            escribir(cuentas);
+        }
+        return eliminada;
+    }
+
     // ---------------------------------------------------------------
     // Perfil asociado (Propietario o Cliente)
     // ---------------------------------------------------------------

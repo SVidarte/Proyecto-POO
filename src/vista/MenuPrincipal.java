@@ -90,7 +90,7 @@ public class MenuPrincipal extends JFrame {
             }
             cuentas.vincularPerfil(usuario, id);
         }
-        new VistaMenuPropietario(id).setVisible(true);
+        new VistaMenuPropietario(id, usuario).setVisible(true);
     }
 
     private void accesoCliente() {
@@ -113,7 +113,7 @@ public class MenuPrincipal extends JFrame {
             }
             cuentas.vincularPerfil(usuario, id);
         }
-        new VistaMenuCliente(id).setVisible(true);
+        new VistaMenuCliente(id, usuario).setVisible(true);
     }
 
     /** Muestra "Registrarse / Iniciar sesión" y devuelve el usuario que accedió (null si canceló). */

@@ -69,6 +69,18 @@ public class ServicioPropietario implements ServicioCrud<Propietario> {
         throw new DatosInvalidosException("El método de pago debe ser Transferencia o Efectivo.");
     }
 
+    /** Propietarios cuyo DNI contiene el texto indicado. */
+    public List<Propietario> buscarPorDni(String dni) {
+        cargarDesdeArchivo();
+        List<Propietario> resultado = new ArrayList<>();
+        for (Propietario p : listaPropietarios) {
+            if (p.getDni().trim().contains(dni.trim())) {
+                resultado.add(p);
+            }
+        }
+        return resultado;
+    }
+
     /** Elimina el propietario. @return true si existía */
     @Override
     public boolean eliminar(String id) {

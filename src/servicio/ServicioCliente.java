@@ -51,6 +51,19 @@ public class ServicioCliente implements ServicioCrud<Cliente> {
         return false;
     }
 
+    /** Clientes cuyo DNI contiene el texto indicado. */
+    public List<Cliente> buscarPorDni(String dni) {
+        listaClientes.clear();
+        cargarDesdeArchivo();
+        List<Cliente> resultado = new ArrayList<>();
+        for (Cliente c : listaClientes) {
+            if (c.getDni().trim().contains(dni.trim())) {
+                resultado.add(c);
+            }
+        }
+        return resultado;
+    }
+
     /** Elimina el cliente. @return true si existía */
     @Override
     public boolean eliminar(String id) {

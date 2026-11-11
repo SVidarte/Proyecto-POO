@@ -124,6 +124,53 @@ public class ServicioPlanificacionPago {
         return resultado;
     }
 
+    /**
+     * Cambia la fecha de pago y el monto de una cuota. Solo se puede mientras la cuota no tenga pagos.
+     *
+     * @throws DatosInvalidosException si la cuota no existe, ya tiene pagos o el monto no es válido
+     */
+    public void modificarCuota(String idCuota, LocalDate nuevaFecha, double nuevoMonto) {
+        PlanificacionPago cuota = cuotaSinPagos(idCuota);
+        if (nuevaFecha == null) {
+            throw new DatosInvalidosException("La fecha de pago es obligatoria.");
+        }
+        if (nuevoMonto <= 0) {
+            throw new DatosInvalidosException("El monto debe ser mayor a 0.");
+        }
+        cuota.setFechaPago(nuevaFecha.format(Alquiler.FORMATO_FECHA));
+        cuota.setMonto(String.format(Locale.US, "%.2f", nuevoMonto));
+        sincronizarArchivo();
+    }
+
+    /**
+     * Elimina una cuota. Solo se puede mientras la cuota no tenga pagos.
+     *
+     * @throws DatosInvalidosException si la cuota no existe o ya tiene pagos
+     */
+    public void eliminarCuota(String idCuota) {
+        PlanificacionPago cuota = cuotaSinPagos(idCuota);
+        listaPlanificaciones.remove(cuota);
+        sincronizarArchivo();
+    }
+
+    /** Busca la cuota pendiente y comprueba que su monto pagado sea 0. */
+    private PlanificacionPago cuotaSinPagos(String idCuota) {
+        PlanificacionPago cuota = buscar(idCuota == null ? "" : idCuota.trim()); // recarga la lista desde el archivo
+        if (cuota == null) {
+            throw new DatosInvalidosException("La cuota " + idCuota + " no existe o ya fue pagada por completo.");
+        }
+        double pagado;
+        try {
+            pagado = Double.parseDouble(cuota.getMonto_pagado());
+        } catch (NumberFormatException e) {
+            pagado = 0;
+        }
+        if (pagado > 0) {
+            throw new DatosInvalidosException("La cuota " + cuota.getId() + " ya tiene pagos: no se puede cambiar ni eliminar.");
+        }
+        return cuota;
+    }
+
     /** true si el alquiler todavía tiene cuotas por pagar. */
     public boolean tieneCuotasPendientes(String idAlquiler) {
         cargarDesdeArchivo();

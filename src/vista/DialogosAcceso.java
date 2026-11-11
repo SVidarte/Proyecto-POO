@@ -83,4 +83,65 @@ public final class DialogosAcceso {
         System.exit(0); // tres intentos fallidos: la aplicación se cierra
         return null;
     }
+
+    /**
+     * Pide la contraseña actual y la nueva (dos veces).
+     *
+     * @return true si la contraseña se cambió, false si se canceló
+     */
+    public static boolean cambiarContrasena(Component padre, ServicioCuenta cuentas, String usuario) {
+        JPasswordField txtActual = new JPasswordField(15);
+        JPasswordField txtNueva = new JPasswordField(15);
+        JPasswordField txtConfirmar = new JPasswordField(15);
+        Object[] campos = {"Contraseña actual:", txtActual, "Contraseña nueva:", txtNueva,
+            "Confirmar contraseña nueva:", txtConfirmar};
+
+        while (true) {
+            int opcion = JOptionPane.showConfirmDialog(padre, campos, "Cambiar contraseña",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            if (opcion != JOptionPane.OK_OPTION) {
+                return false;
+            }
+            char[] actual = txtActual.getPassword();
+            char[] nueva = txtNueva.getPassword();
+            char[] confirmacion = txtConfirmar.getPassword();
+            try {
+                cuentas.cambiarContrasena(usuario, new String(actual), new String(nueva), new String(confirmacion));
+                JOptionPane.showMessageDialog(padre, "Contraseña cambiada correctamente.");
+                return true;
+            } catch (IllegalArgumentException | IllegalStateException ex) {
+                JOptionPane.showMessageDialog(padre, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                Arrays.fill(actual, '\0');
+                Arrays.fill(nueva, '\0');
+                Arrays.fill(confirmacion, '\0');
+            }
+        }
+    }
+
+    /**
+     * Muestra un mensaje y pide la contraseña del usuario para confirmar una acción delicada
+     * (por ejemplo, eliminar la cuenta).
+     *
+     * @return true si la contraseña es correcta
+     */
+    public static boolean confirmarContrasena(Component padre, ServicioCuenta cuentas, String usuario, String mensaje) {
+        JPasswordField txtClave = new JPasswordField(15);
+        Object[] campos = {mensaje, "Contraseña:", txtClave};
+        int opcion = JOptionPane.showConfirmDialog(padre, campos, "Confirmar con su contraseña",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (opcion != JOptionPane.OK_OPTION) {
+            return false;
+        }
+        char[] clave = txtClave.getPassword();
+        try {
+            if (cuentas.validar(usuario, new String(clave))) {
+                return true;
+            }
+            JOptionPane.showMessageDialog(padre, "Contraseña incorrecta.", "Error", JOptionPane.ERROR_MESSAGE);
+            return false;
+        } finally {
+            Arrays.fill(clave, '\0');
+        }
+    }
 }
