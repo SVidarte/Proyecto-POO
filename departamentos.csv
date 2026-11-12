@@ -1,5 +1,16 @@
 id_departamento;id_propietario;piso;numero_departamento;direccion;precio_mensual;estado
-DP0001;P0001;3;300;Urb Santa Maria del Pinar;1350.00;Ocupado
-DP0002;P0001;4;400;Urb Santa Maria del Pinar;1150.00;Disponible
-DP0003;P0002;2;201;Avenida Sánchez Cerro Nro. 535;1200.00;Disponible
-DP0004;P0002;2;202;Los Ceibos Pasaje 103, Urb. Santa Isabel, Piura;1500.00;Ocupado
+DP0001;P0001;1;101;Urb Santa Maria del Pinar;1200.00;Disponible
+DP0002;P0001;2;202;Urb Santa Maria del Pinar;1350.00;Ocupado
+DP0003;P0002;1;102;Avenida Sánchez Cerro Nro. 535;1100.00;Disponible
+DP0004;P0002;3;301;Los Ceibos Pasaje 103, Urb. Santa Isabel;1500.00;Ocupado
+DP0005;P0003;2;201;Urbanización El Chipe, Calle Los Pinos;1600.00;Disponible
+DP0006;P0004;4;401;Avenida Grau Nro. 1200;1250.00;Ocupado
+DP0007;P0005;1;103;Urb. Miraflores, Calle Las Begonias;1400.00;Disponible
+DP0008;P0006;2;204;Urbanización San Eduardo;1550.00;Ocupado
+DP0009;P0007;3;302;Calle Lima Nro. 450, Piura Centro;1000.00;Disponible
+DP0010;P0008;1;104;Urb. Clark, Calle Los Mangos;1300.00;Ocupado
+DP0011;P0009;2;203;Urbanización Ana Maria;1450.00;Disponible
+DP0012;P0010;4;402;Avenida Country, Urb. Los Cocos;1700.00;Ocupado
+DP0013;P0011;1;105;Calle Huancavelica Nro. 320;1150.00;Disponible
+DP0014;P0012;3;303;Urb. Santa Margarita;950.00;Ocupado
+DP0015;P0013;2;205;Urbanización Banco de la Nación;1350.00;Disponible
