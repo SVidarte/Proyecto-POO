@@ -66,7 +66,11 @@ public class VistaAdministrador extends JFrame {
                 DialogosAcceso.cambiarContrasena(this, ServicioCuenta.administradores(), usuario));
         btnEliminarCuenta.addActionListener(e -> eliminarMiCuenta());
 
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        panel.add(btnVolver);
         panel.add(btnContrasena);
         panel.add(btnEliminarCuenta);
         return panel;

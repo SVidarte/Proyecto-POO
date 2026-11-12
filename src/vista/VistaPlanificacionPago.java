@@ -55,6 +55,9 @@ public class VistaPlanificacionPago extends JFrame {
         panelSuperior.add(btnFiltrar);
         panelSuperior.add(btnPagadas);
         panelSuperior.add(btnTodos);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        panelSuperior.add(btnVolver);
         add(panelSuperior, BorderLayout.NORTH);
 
         modeloTabla = new DefaultTableModel(new String[]{

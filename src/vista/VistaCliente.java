@@ -121,6 +121,10 @@ public class VistaCliente extends JFrame {
         btnLimpiar = new JButton("Limpiar");
         btnLimpiar.setBounds(360, 175, 110, 30);
         add(btnLimpiar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.setBounds(490, 175, 110, 30);
+        btnVolver.addActionListener(e -> dispose());
+        add(btnVolver);
 
         // Tabla
         modeloTabla = new DefaultTableModel(new String[]{"ID", "DNI", "Nombres", "Apellidos", "Email", "Celular", "Sexo", "Referencia"}, 0);

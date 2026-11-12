@@ -164,6 +164,9 @@ public class VistaAlquiler extends JFrame {
         panel.add(btnModificar);
         panel.add(btnEliminar);
         panel.add(btnLimpiar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        panel.add(btnVolver);
         return panel;
     }
 

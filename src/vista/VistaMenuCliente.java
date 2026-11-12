@@ -45,6 +45,7 @@ public class VistaMenuCliente extends JFrame {
         botones.add(crearBoton("Cambiar contraseña", e ->
                 DialogosAcceso.cambiarContrasena(this, ServicioCuenta.clientes(), usuario)));
         botones.add(crearBoton("Eliminar mi cuenta", e -> eliminarMiCuenta()));
+        botones.add(crearBoton("Volver", e -> dispose()));
         add(botones, BorderLayout.CENTER);
     }
 

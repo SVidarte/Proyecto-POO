@@ -109,6 +109,10 @@ public class VistaDepartamento extends JFrame {
         add(btnEliminar);
         add(btnLimpiar);
         add(btnModificar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.setBounds(720, 200, 100, 30);
+        btnVolver.addActionListener(e -> dispose());
+        add(btnVolver);
         btnGuardar.addActionListener(e -> guardarDepartamento());
         btnEliminar.addActionListener(e -> eliminarDepartamento());
         btnLimpiar.addActionListener(e -> limpiarCampos());

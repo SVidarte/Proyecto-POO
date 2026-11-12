@@ -55,6 +55,9 @@ public class VistaAlquileresCliente extends JFrame {
         JButton btnActualizar = new JButton("Actualizar");
         btnActualizar.addActionListener(e -> cargarTabla());
         sur.add(btnActualizar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        sur.add(btnVolver);
         add(sur, BorderLayout.SOUTH);
 
         addWindowListener(new WindowAdapter() {

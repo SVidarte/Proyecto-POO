@@ -139,6 +139,10 @@ public class VistaPropietario extends JFrame {
         btnLimpiar = new JButton("Limpiar");
         btnLimpiar.setBounds(410, 205, 110, 30);
         add(btnLimpiar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.setBounds(540, 205, 110, 30);
+        btnVolver.addActionListener(e -> dispose());
+        add(btnVolver);
 
         // Tabla
         modeloTabla = new DefaultTableModel(new String[]{"ID", "DNI", "Nombres", "Apellidos", "Email", "Celular", "Sexo", "Método Pago", "Nro. Cuenta", "Banco"}, 0);

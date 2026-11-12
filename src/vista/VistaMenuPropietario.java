@@ -121,8 +121,14 @@ public class VistaMenuPropietario extends JFrame {
         botones.add(btnContrasena);
         botones.add(btnEliminarCuenta);
 
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        JPanel encabezado = new JPanel(new BorderLayout(5, 0));
+        encabezado.add(lblBienvenida, BorderLayout.CENTER);
+        encabezado.add(btnVolver, BorderLayout.EAST);
+
         JPanel panel = new JPanel(new BorderLayout(5, 8));
-        panel.add(lblBienvenida, BorderLayout.NORTH);
+        panel.add(encabezado, BorderLayout.NORTH);
         panel.add(botones, BorderLayout.CENTER);
         return panel;
     }

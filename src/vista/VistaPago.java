@@ -105,6 +105,9 @@ public class VistaPago extends JFrame {
         panelBotones.add(btnModificar);
         panelBotones.add(btnEliminar);
         panelBotones.add(btnLimpiar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        panelBotones.add(btnVolver);
 
         JPanel panelSuperior = new JPanel(new BorderLayout());
         panelSuperior.add(panelFormulario, BorderLayout.CENTER);

@@ -67,6 +67,9 @@ public class VistaCuotasPropietario extends JFrame {
         botones.add(btnModificar);
         botones.add(btnEliminar);
         botones.add(btnActualizar);
+        JButton btnVolver = new JButton("Volver");
+        btnVolver.addActionListener(e -> dispose());
+        botones.add(btnVolver);
 
         JPanel sur = new JPanel(new BorderLayout());
         sur.add(datos, BorderLayout.NORTH);
